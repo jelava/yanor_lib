@@ -1,0 +1,1 @@
+"Eggs" are experiments that may eventually "hatch" into library features and/or examples.
