@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.16.1", features = ["bevy_dev_tools"] }
-leafwing-input-manager = "0.17.0"
+# leafwing-input-manager = "0.17.0"
+# seldom_state = "0.14.0"
