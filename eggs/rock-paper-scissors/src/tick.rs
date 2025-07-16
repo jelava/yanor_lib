@@ -1,5 +1,4 @@
 use bevy::{
-    dev_tools::states::*,
     ecs::{component::HookContext, world::DeferredWorld},
     prelude::*,
 };
@@ -8,16 +7,14 @@ pub struct TickPlugin;
 
 impl Plugin for TickPlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<TickState>()
-            .add_systems(Update, log_transitions::<TickState>)
-            .add_systems(
-                FixedPostUpdate,
-                (
-                    check_for_idlers.run_if(in_state(TickState::PreTick)),
-                    check_for_pending.run_if(in_state(TickState::Tick)),
-                    check_for_tick_done.run_if(in_state(TickState::PostTick)),
-                ),
-            );
+        app.init_state::<TickState>().add_systems(
+            FixedPostUpdate,
+            (
+                check_for_idlers.run_if(in_state(TickState::PreTick)),
+                check_for_pending.run_if(in_state(TickState::Tick)),
+                check_for_tick_done.run_if(in_state(TickState::PostTick)),
+            ),
+        );
     }
 }
 
@@ -29,6 +26,9 @@ pub enum TickState {
     Tick,
     PostTick,
 }
+
+// TODO: would it be better to use SparseSet storage for these components? would need benchmarking
+// to tell but not worth worrying about for now
 
 #[derive(Component, Default)]
 #[component(on_add = remove_others::<NeedsTick, TickDone>)]

@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.16.1", features = ["bevy_dev_tools"] }
+bevy = { version = "0.16.1", features = ["bevy_dev_tools", "dynamic_linking"] }
 rand = "0.9"
 bevy_rand = { version = "0.11.1", features = ["wyrand"] }
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold"]

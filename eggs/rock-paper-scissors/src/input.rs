@@ -52,22 +52,21 @@ pub struct InputController;
 
 // The currently active input controller
 #[derive(Component)]
-#[component(on_remove = next_active_input_controller)]
+#[component(
+    storage = "SparseSet",
+    on_remove = next_active_input_controller,
+)]
 pub struct ActiveInputController;
 
 fn next_active_input_controller(mut world: DeferredWorld, _context: HookContext) {
     let mut input_queue = world.resource_mut::<InputControllerQueue>();
 
-    info!("ActiveInputController removed");
-
     if let Some(next_input_controller_entity) = input_queue.0.pop_front() {
-        info!("Found next InputController in queue");
-
         world
             .commands()
             .entity(next_input_controller_entity)
             .insert(ActiveInputController);
-    } else {
-        info!("InputControllerQueue is empty");
-    }
+    } //else {
+    // TODO: fire an event when InputControllerQueue is empty?
+    //}
 }

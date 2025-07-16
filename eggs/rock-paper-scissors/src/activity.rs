@@ -77,25 +77,28 @@ fn advance_activity_phase_queues(
 
 #[derive(Component)]
 #[require(NeedsTick)]
-#[component(on_insert = init_phase_queue::<A>)]
-pub struct CurrentActivity<A: Activity>(pub A);
+#[component(
+    immutable,
+    on_insert = init_phase_queue::<A>,
+)]
+pub struct CurrentActivity<A: Activity>(pub A); // TODO: SparseSet storage?
 
 fn init_phase_queue<A: Activity>(
     mut world: DeferredWorld,
     HookContext { entity, .. }: HookContext,
 ) {
-    let phase_queue = world
-        .get::<CurrentActivity<A>>(entity)
-        .unwrap() // TODO: don't do this
-        .0
-        .phase_queue();
+    if let Some(CurrentActivity(activity)) = world.get::<CurrentActivity<A>>(entity) {
+        let phase_queue = activity.phase_queue();
 
-    world
-        .commands()
-        .entity(entity)
-        .insert(phase_queue)
-        .try_remove::<ActiveInputController>()
-        .observe(remove_activity_when_idle::<A>);
+        world
+            .commands()
+            .entity(entity)
+            .insert(phase_queue)
+            .try_remove::<ActiveInputController>()
+            .observe(remove_activity_when_idle::<A>);
+    } else {
+        warn!("No CurrentActivity found in on_insert hook for CurrentActivity");
+    }
 }
 
 fn remove_activity_when_idle<A: Activity>(trigger: Trigger<OnAdd, Idle>, mut commands: Commands) {
