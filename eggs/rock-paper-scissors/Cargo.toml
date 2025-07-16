@@ -5,5 +5,5 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.16.1", features = ["bevy_dev_tools"] }
-# leafwing-input-manager = "0.17.0"
-# seldom_state = "0.14.0"
+rand = "0.9"
+bevy_rand = { version = "0.11.1", features = ["wyrand"] }

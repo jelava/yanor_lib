@@ -1,13 +1,18 @@
 mod activity;
+mod input;
 mod tick;
 
-use bevy::{log::LogPlugin, prelude::*};
+use bevy::prelude::*;
+use bevy_rand::prelude::*;
+use input::{ActiveInputController, InputController, InputControllerPlugin};
+use rand::Rng;
 
 use crate::{activity::*, tick::*};
 
 fn main() {
     App::new()
-        .add_plugins((MinimalPlugins, LogPlugin::default(), TickPlugin))
+        .add_plugins((DefaultPlugins, EntropyPlugin::<WyRand>::default()))
+        .add_plugins((ActivityPlugin, InputControllerPlugin, TickPlugin))
         .insert_resource(RoundCounter {
             current_round: 0,
             num_rounds: 5,
@@ -17,14 +22,20 @@ fn main() {
         .add_systems(
             FixedUpdate,
             (
-                process_idle_rock_controllers.run_if(in_state(TickState::PreTick)),
+                (
+                    process_idle_rock_controllers,
+                    process_idle_random_controllers,
+                )
+                    .run_if(in_state(TickState::PreTick)),
                 do_rps_activities.run_if(in_state(TickState::Tick)),
             ),
         )
+        .add_systems(
+            Update,
+            process_active_input_controller.run_if(in_state(TickState::PreTick)),
+        )
         .add_systems(OnExit(TickState::PostTick), increment_round_counter)
-        .add_systems(OnEnter(TickState::PreTick), player_status_check)
-        .add_systems(OnEnter(TickState::Tick), player_status_check)
-        .add_systems(OnEnter(TickState::PostTick), player_status_check)
+        .add_observer(announce_active_input_controller)
         .run();
 }
 
@@ -48,10 +59,8 @@ struct RoundCounter {
 }
 
 fn spawn_players(mut commands: Commands) {
-    info!("spawning 2 NPC players");
-
-    commands.spawn((PlayerId(0), RockController));
-    commands.spawn((PlayerId(1), RockController));
+    commands.spawn((PlayerId(0), InputController));
+    commands.spawn((PlayerId(1), RandomController));
 }
 
 fn increment_round_counter(
@@ -76,30 +85,8 @@ fn increment_round_counter(
                 score.wins,
                 score.ties,
                 score.losses,
-                score.wins - score.losses
+                (score.wins as isize) - (score.losses as isize)
             );
-        }
-    }
-}
-
-fn player_status_check(
-    player_query: Query<(
-        &PlayerId,
-        Has<Idle>,
-        Has<NeedsTick>,
-        Has<CurrentActivity<RpsActivity>>,
-        Option<&ActivityPhaseQueue>,
-    )>,
-) {
-    for (player, has_idle, has_pending_tick, has_activity, maybe_phase_queue) in &player_query {
-        info!(
-            "{player:?} (idle: {has_idle}, pending tick: {has_pending_tick}, current_activity: {has_activity})"
-        );
-
-        if let Some(phase_queue) = maybe_phase_queue {
-            info!(" ^ has phase queue");
-        } else {
-            info!(" ^ no phase queue");
         }
     }
 }
@@ -116,11 +103,75 @@ fn process_idle_rock_controllers(
     rock_controller_query: Query<(Entity, &PlayerId), (With<RockController>, With<Idle>)>,
 ) {
     for (entity, player) in &rock_controller_query {
-        info!("{player:?} is idle, adding Rock as current activity");
+        info!("{player:?} chooses Rock");
 
         commands
             .entity(entity)
             .insert(CurrentActivity(RpsActivity::Rock));
+    }
+}
+
+// Chooses what to do randomly
+#[derive(Component)]
+#[require(Idle)]
+struct RandomController;
+
+fn process_idle_random_controllers(
+    mut commands: Commands,
+    mut rng: GlobalEntropy<WyRand>,
+    random_controller_query: Query<(Entity, &PlayerId), (With<RandomController>, With<Idle>)>,
+) {
+    for (entity, player) in &random_controller_query {
+        let activity = match rng.random_range(0..3) {
+            0 => RpsActivity::Rock,
+            1 => RpsActivity::Paper,
+            _ => RpsActivity::Scissors,
+        };
+
+        info!("{player:?} chooses {activity:?}");
+
+        commands.entity(entity).insert(CurrentActivity(activity));
+    }
+}
+
+fn announce_active_input_controller(
+    _trigger: Trigger<OnAdd, ActiveInputController>,
+    player_id: Single<&PlayerId, With<ActiveInputController>>,
+) {
+    info!(
+        "{:?} input your next move: (r)ock, (p)aper, (s)cissors",
+        *player_id
+    );
+}
+
+fn process_active_input_controller(
+    mut commands: Commands,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    active_input_controller_query: Single<
+        (Entity, &PlayerId),
+        (With<ActiveInputController>, With<Idle>),
+    >,
+) {
+    let (entity, player) = *active_input_controller_query;
+
+    if keyboard_input.just_pressed(KeyCode::KeyR) {
+        info!("{player:?} chooses Rock");
+
+        commands
+            .entity(entity)
+            .insert(CurrentActivity(RpsActivity::Rock));
+    } else if keyboard_input.just_pressed(KeyCode::KeyP) {
+        info!("{player:?} chooses Paper");
+
+        commands
+            .entity(entity)
+            .insert(CurrentActivity(RpsActivity::Paper));
+    } else if keyboard_input.just_pressed(KeyCode::KeyS) {
+        info!("{player:?} chooses Scissors");
+
+        commands
+            .entity(entity)
+            .insert(CurrentActivity(RpsActivity::Scissors));
     }
 }
 
@@ -222,6 +273,4 @@ fn do_rps_activities(
         commands.entity(entity1).insert(TickDone);
         commands.entity(entity2).insert(TickDone);
     }
-
-    info!("===");
 }
