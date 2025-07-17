@@ -1,13 +1,11 @@
-mod activity;
-mod input;
-mod tick;
-
 use bevy::prelude::*;
 use bevy_rand::prelude::*;
-use input::{ActiveInputController, InputController, InputControllerPlugin};
 use rand::Rng;
-
-use crate::{activity::*, tick::*};
+use yanor_core::{
+    activity::*,
+    input::{ActiveInputController, InputController, InputControllerPlugin},
+    tick::*,
+};
 
 fn main() {
     App::new()
@@ -59,7 +57,7 @@ struct RoundCounter {
 }
 
 fn spawn_players(mut commands: Commands) {
-    commands.spawn((PlayerId(0), InputController));
+    commands.spawn((PlayerId(0), InputController { queue_position: 0 }));
     commands.spawn((PlayerId(1), RandomController));
 }
 

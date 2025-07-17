@@ -4,8 +4,8 @@ members = ["crates/*", "eggs/*"]
 default-members = ["crates/*"]
 
 # [package]
-# name = "yanor-lib"
-# version = "0.0.1-alpha"
+# name = "yanor_lib"
+# version = "0.1.0"
 # edition = "2024"
 # description = "A library to help with making roguelikes using bevy"
-# repository = "https://github.com/jelava/yanor-lib"
+# repository = "https://github.com/jelava/yanor_lib"

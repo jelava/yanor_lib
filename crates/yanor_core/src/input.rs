@@ -5,10 +5,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{
-    PlayerId,
-    tick::{Idle, TickState},
-};
+use crate::tick::{Idle, TickState};
 
 pub struct InputControllerPlugin;
 
@@ -19,6 +16,12 @@ impl Plugin for InputControllerPlugin {
     }
 }
 
+#[derive(Component)]
+#[require(Idle)]
+pub struct InputController {
+    pub queue_position: usize,
+}
+
 #[derive(Resource, Default)]
 pub struct InputControllerQueue(VecDeque<Entity>);
 // TODO: handle entities in queue being despawned/having InputController component removed?
@@ -26,7 +29,7 @@ pub struct InputControllerQueue(VecDeque<Entity>);
 fn queue_input_controllers(
     mut commands: Commands,
     mut input_queue: ResMut<InputControllerQueue>,
-    input_controller_query: Query<(Entity, &PlayerId), (With<InputController>, With<Idle>)>,
+    input_controller_query: Query<(Entity, &InputController), With<Idle>>,
 ) {
     if !input_queue.0.is_empty() {
         warn!("InputControllerQueue was not empty at beginning of PreTick, clearing queue");
@@ -35,20 +38,15 @@ fn queue_input_controllers(
 
     input_controller_query
         .iter()
-        .sort_by::<&PlayerId>(|PlayerId(player1), PlayerId(player2)| player1.cmp(player2))
-        .for_each(|(entity, player)| {
-            info!("adding {player:?} to InputControllerQueue");
-            input_queue.0.push_back(entity);
-        });
+        .sort_by::<&InputController>(|controller1, controller2| {
+            controller1.queue_position.cmp(&controller2.queue_position)
+        })
+        .for_each(|(entity, _)| input_queue.0.push_back(entity));
 
     if let Some(entity) = input_queue.0.pop_front() {
         commands.entity(entity).insert(ActiveInputController);
     }
 }
-
-#[derive(Component)]
-#[require(Idle)]
-pub struct InputController;
 
 // The currently active input controller
 #[derive(Component)]
