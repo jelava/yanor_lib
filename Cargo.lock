@@ -4084,6 +4084,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tic_tac_toe"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "yanor_core",
+]
+
+[[package]]
 name = "tinyvec"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
