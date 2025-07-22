@@ -11,7 +11,8 @@ pub struct InputControllerPlugin;
 
 impl Plugin for InputControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<InputControllerQueue>()
+        app
+            .init_resource::<InputControllerQueue>()
             .add_systems(OnEnter(TickState::PreTick), queue_input_controllers);
     }
 }

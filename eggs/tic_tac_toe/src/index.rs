@@ -76,8 +76,7 @@ impl<I: ComponentIndex + Default> Default for ComponentIndexPlugin<I> {
 
 impl<I: ComponentIndex + Default> Plugin for ComponentIndexPlugin<I> {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<I>()
+        app.init_resource::<I>()
             .add_systems(PreStartup, register_component_index_hooks::<I>);
     }
 }
