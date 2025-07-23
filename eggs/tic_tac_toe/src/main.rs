@@ -2,16 +2,17 @@ mod grid;
 mod index;
 
 use bevy::prelude::*;
-use yanor_core::tick::{TickPlugin, start_ticking};
+use index::ComponentIndex;
+// use yanor_core::input::*;
 
-use grid::{GridPosition, SparseGridIndexPlugin};
+use grid::{GridPosition, SparseGridIndex, SparseGridIndexPlugin};
 
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MeshPickingPlugin))
-        .add_plugins((SparseGridIndexPlugin::default(), TickPlugin))
+        .add_plugins(SparseGridIndexPlugin::default())
+        .init_state::<TurnState>()
         .add_systems(Startup, (load_textures, spawn_game).chain())
-        .add_systems(PostStartup, start_ticking)
         .run();
 }
 
@@ -31,8 +32,6 @@ fn load_textures(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    info!("loading textures...");
-
     commands.insert_resource(AssetHandles {
         block_mesh_handle: meshes.add(Cuboid::default()),
         rect_mesh_handle: meshes.add(Rectangle::default()),
@@ -44,26 +43,44 @@ fn load_textures(
         x_material_handle: materials.add(StandardMaterial {
             base_color_texture: Some(asset_server.load("x.png")),
             unlit: true,
+            alpha_mode: AlphaMode::Mask(1.0),
+            cull_mode: None,
             ..default()
         }),
         o_material_handle: materials.add(StandardMaterial {
             base_color_texture: Some(asset_server.load("o.png")),
             unlit: true,
+            alpha_mode: AlphaMode::Mask(1.0),
+            cull_mode: None,
             ..default()
         }),
         highlight_material_handle: materials.add(StandardMaterial {
             base_color_texture: Some(asset_server.load("highlight.png")),
             unlit: true,
             alpha_mode: AlphaMode::Mask(1.0),
+            cull_mode: None,
             ..default()
         }),
     });
 }
 
+// #[derive(Component)]
+// enum Player {
+//     X,
+//     O,
+// }
+
 #[derive(Component)]
-enum Player {
+enum Marker {
     X,
     O,
+}
+
+#[derive(States, Debug, Clone, Copy, Default, Eq, PartialEq, Hash)]
+enum TurnState {
+    #[default]
+    XTurn,
+    OTurn,
 }
 
 #[derive(Component)]
@@ -85,7 +102,8 @@ fn spawn_game(mut commands: Commands, asset_handles: Res<AssetHandles>) {
                     Mesh3d(asset_handles.block_mesh_handle.clone()),
                     MeshMaterial3d(asset_handles.block_material_handle.clone()),
                 ))
-                .observe(on_board_hover);
+                .observe(on_board_hover)
+                .observe(on_board_click);
         }
     }
 
@@ -94,16 +112,10 @@ fn spawn_game(mut commands: Commands, asset_handles: Res<AssetHandles>) {
         Transform::from_xyz(0.0, 1.0, 0.0),
         Mesh3d(asset_handles.block_mesh_handle.clone()),
         MeshMaterial3d(asset_handles.highlight_material_handle.clone()),
-    ));
-
-    commands.spawn((
-        Player::X,
-        // todo
-    ));
-
-    commands.spawn((
-        Player::O,
-        // todo
+        Pickable {
+            should_block_lower: false,
+            is_hoverable: false,
+        },
     ));
 
     commands.spawn((
@@ -114,12 +126,59 @@ fn spawn_game(mut commands: Commands, asset_handles: Res<AssetHandles>) {
 
 fn on_board_hover(
     trigger: Trigger<Pointer<Over>>,
-    mut cell_highlight: Single<&mut Transform, With<CellHighlight>>,
+    mut cell_highlight_transform: Single<&mut Transform, With<CellHighlight>>,
     transform_query: Query<&Transform, (With<BoardBlock>, Without<CellHighlight>)>,
 ) {
-    if let Ok(&transform) = transform_query.get(trigger.target()) {
-        cell_highlight.translation = transform.translation + Vec3::Y;
+    if let Ok(&board_transform) = transform_query.get(trigger.target()) {
+        cell_highlight_transform.translation = board_transform.translation + Vec3::Y;
     } else {
-        warn!("Hovered BoardBlock has no Transform?");
+        warn!("Hovered BoardBlock has no Transform");
+    }
+}
+
+fn on_board_click(
+    _trigger: Trigger<Pointer<Click>>,
+    mut commands: Commands,
+    asset_handles: Res<AssetHandles>,
+    current_turn: Res<State<TurnState>>,
+    mut next_turn: ResMut<NextState<TurnState>>,
+    grid_index: Res<SparseGridIndex>,
+    camera_transform: Single<&Transform, With<Camera>>,
+    cell_highlight_transform: Single<&Transform, With<CellHighlight>>,
+) {
+    let grid_pos = GridPosition(IVec3::new(
+        cell_highlight_transform.translation.x as i32,
+        cell_highlight_transform.translation.y as i32,
+        cell_highlight_transform.translation.z as i32,
+    ));
+
+    if grid_index.get(&grid_pos).is_none() {
+        let (marker, material_handle, next_state) = match current_turn.get() {
+            TurnState::XTurn => (
+                Marker::X,
+                asset_handles.x_material_handle.clone(),
+                TurnState::OTurn,
+            ),
+            TurnState::OTurn => (
+                Marker::O,
+                asset_handles.o_material_handle.clone(),
+                TurnState::XTurn
+            ),
+        };
+
+        commands.spawn((
+            marker,
+            grid_pos,
+            cell_highlight_transform.clone()
+                .looking_to(camera_transform.back(), camera_transform.up()),
+            Mesh3d(asset_handles.rect_mesh_handle.clone()),
+            MeshMaterial3d(material_handle),
+            Pickable {
+                should_block_lower: false,
+                is_hoverable: false,
+            },
+        ));
+
+        next_turn.set(next_state);
     }
 }

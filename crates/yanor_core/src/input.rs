@@ -20,7 +20,7 @@ impl Plugin for InputControllerPlugin {
 #[derive(Component)]
 #[require(Idle)]
 pub struct InputController {
-    pub queue_position: usize,
+    pub queue_priority: usize,
 }
 
 #[derive(Resource, Default)]
@@ -40,7 +40,7 @@ fn queue_input_controllers(
     input_controller_query
         .iter()
         .sort_by::<&InputController>(|controller1, controller2| {
-            controller1.queue_position.cmp(&controller2.queue_position)
+            controller1.queue_priority.cmp(&controller2.queue_priority)
         })
         .for_each(|(entity, _)| input_queue.0.push_back(entity));
 

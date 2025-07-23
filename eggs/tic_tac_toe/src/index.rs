@@ -2,16 +2,10 @@
 use std::{hash::Hash, marker::PhantomData};
 
 use bevy::{
-    ecs::{component::HookContext, entity::EntityHashSet},
+    ecs::entity::EntityHashSet,
     platform::collections::HashMap,
     prelude::*,
 };
-
-// pub trait ComponentIndex<C: Component>: Resource {
-//     fn get(&self, component: &C) -> Option<&EntityHashSet>;
-//     fn insert(&mut self, component: C, entity: Entity);
-//     fn remove(&mut self, component: &C, entity: Entity);
-// }
 
 pub trait ComponentIndex: Resource {
     type Cmp: Component + Copy + Clone;
@@ -76,25 +70,56 @@ impl<I: ComponentIndex + Default> Default for ComponentIndexPlugin<I> {
 
 impl<I: ComponentIndex + Default> Plugin for ComponentIndexPlugin<I> {
     fn build(&self, app: &mut App) {
-        app.init_resource::<I>()
-            .add_systems(PreStartup, register_component_index_hooks::<I>);
+        app
+            .init_resource::<I>()
+            .add_observer(update_index_on_insert::<I>)
+            .add_observer(update_index_on_replace::<I>);
+            //.add_systems(PreStartup, register_component_index_hooks::<I>);
     }
 }
 
-fn register_component_index_hooks<I: ComponentIndex>(world: &mut World) {
-    // TODO: this will panic if I::Cmp already has insert/replace hooks
-    // (maybe just use observers? pros/cons to switching?)
-    world
-        .register_component_hooks::<I::Cmp>()
-        .on_insert(|mut world, HookContext { entity, .. }| {
-            let component = *world.get(entity).unwrap();
-            world.resource_mut::<I>().insert(component, entity);
-        })
-        .on_replace(|mut world, HookContext { entity, .. }| {
-            let component = *world.get(entity).unwrap();
-            world.resource_mut::<I>().remove(&component, entity);
+// fn register_component_index_hooks<I: ComponentIndex>(world: &mut World) {
+//     // TODO: this will panic if I::Cmp already has insert/replace hooks
+//     // (maybe just use observers? pros/cons to switching?)
+//     world
+//         .register_component_hooks::<I::Cmp>()
+//         .on_insert(|mut world, HookContext { entity, .. }| {
+//             let component = *world.get(entity).unwrap();
+//             world.resource_mut::<I>().insert(component, entity);
+//         })
+//         .on_replace(|mut world, HookContext { entity, .. }| {
+//             let component = *world.get(entity).unwrap();
+//             world.resource_mut::<I>().remove(&component, entity);
+//
+//             // The insert hook is guaranteed to run after this if the component is being replaced
+//             // and it will handle re-adding the entity to the index for the new component value
+//         });
+// }
 
-            // The insert hook is guaranteed to run after this if the component is being replaced
-            // and it will handle re-adding the entity to the index for the new component value
-        });
+fn update_index_on_insert<I: ComponentIndex>(
+    trigger: Trigger<OnInsert, I::Cmp>,
+    mut index: ResMut<I>,
+    component_query: Query<&I::Cmp>,
+) {
+    let entity = trigger.target();
+
+    if let Ok(&component) = component_query.get(entity) {
+        index.insert(component, entity);
+    } else {
+        panic!("Entity does not have indexed component");
+    }
+}
+
+fn update_index_on_replace<I: ComponentIndex>(
+    trigger: Trigger<OnReplace, I::Cmp>,
+    mut index: ResMut<I>,
+    component_query: Query<&I::Cmp>,
+) {
+    let entity = trigger.target();
+
+    if let Ok(component) = component_query.get(entity) {
+        index.remove(component, entity);
+    } else {
+        panic!("Entity does not have indexed component");
+    }
 }

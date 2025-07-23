@@ -7,14 +7,16 @@ pub struct TickPlugin;
 
 impl Plugin for TickPlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<TickState>().add_systems(
-            FixedPostUpdate,
-            (
-                check_for_idlers.run_if(in_state(TickState::PreTick)),
-                check_for_pending.run_if(in_state(TickState::Tick)),
-                check_for_tick_done.run_if(in_state(TickState::PostTick)),
-            ),
-        );
+        app
+            .init_state::<TickState>()
+            .add_systems(
+                FixedPostUpdate,
+                (
+                    check_for_idlers.run_if(in_state(TickState::PreTick)),
+                    check_for_pending.run_if(in_state(TickState::Tick)),
+                    check_for_tick_done.run_if(in_state(TickState::PostTick)),
+                ),
+            );
     }
 }
 
