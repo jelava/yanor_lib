@@ -253,17 +253,17 @@ fn do_rps_activities(
                 score1.ties += 1;
                 score2.ties += 1;
                 "Tie".into()
-            },
+            }
             Player1Wins => {
                 score1.wins += 1;
                 score2.losses += 1;
                 format!("Player {player1:?} wins")
-            },
+            }
             Player2Wins => {
                 score1.losses += 1;
                 score2.wins += 1;
                 format!("Player {player2:?} wins")
-            },
+            }
         };
 
         info!("{player_description}: {move_description}. {outcome_description}!");

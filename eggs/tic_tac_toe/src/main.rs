@@ -2,10 +2,10 @@ mod grid;
 mod index;
 
 use bevy::prelude::*;
-use index::ComponentIndex;
-// use yanor_core::input::*;
-
-use grid::{GridPosition, SparseGridIndex, SparseGridIndexPlugin};
+use yanor_core::{
+    grid::{GridPosition, SparseGridIndex, SparseGridIndexPlugin},
+    index::ComponentIndex,
+};
 
 fn main() {
     App::new()
@@ -162,14 +162,15 @@ fn on_board_click(
             TurnState::OTurn => (
                 Marker::O,
                 asset_handles.o_material_handle.clone(),
-                TurnState::XTurn
+                TurnState::XTurn,
             ),
         };
 
         commands.spawn((
             marker,
             grid_pos,
-            cell_highlight_transform.clone()
+            cell_highlight_transform
+                .clone()
                 .looking_to(camera_transform.back(), camera_transform.up()),
             Mesh3d(asset_handles.rect_mesh_handle.clone()),
             MeshMaterial3d(material_handle),
