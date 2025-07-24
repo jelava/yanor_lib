@@ -1,6 +1,3 @@
-mod grid;
-mod index;
-
 use bevy::prelude::*;
 use yanor_core::{
     grid::{GridPosition, SparseGridIndex, SparseGridIndexPlugin},
