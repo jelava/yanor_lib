@@ -2724,6 +2724,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "maze"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_rand",
+ "rand 0.9.1",
+ "yanor_core",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
