@@ -1,7 +1,7 @@
 mod player;
 
 use bevy::prelude::*;
-use yanor_core::{activity::*, grid::*, input::*, tick::*};
+use yanor_core::{grid::*, input::*, tick::*};
 
 use crate::player::Player;
 
@@ -9,7 +9,6 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MeshPickingPlugin))
         .add_plugins((
-            ActivityPlugin,
             InputControllerPlugin,
             SparseGridIndexPlugin::default(),
             TickPlugin,
