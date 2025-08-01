@@ -87,8 +87,6 @@ struct BoardBlock;
 struct CellHighlight;
 
 fn spawn_game(mut commands: Commands, asset_handles: Res<AssetHandles>) {
-    info!("spawning stuff...");
-
     for x in 0..3 {
         for z in 0..3 {
             commands

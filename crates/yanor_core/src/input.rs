@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::tick::{Idle, TickState};
+use crate::{activity::Inactive, tick::TickState};
 
 pub struct InputControllerPlugin;
 
@@ -17,7 +17,7 @@ impl Plugin for InputControllerPlugin {
 }
 
 #[derive(Component)]
-#[require(Idle)]
+#[require(Inactive)]
 pub struct InputController {
     pub queue_priority: usize,
 }
@@ -29,7 +29,7 @@ pub struct InputControllerQueue(VecDeque<Entity>);
 fn queue_input_controllers(
     mut commands: Commands,
     mut input_queue: ResMut<InputControllerQueue>,
-    input_controller_query: Query<(Entity, &InputController), With<Idle>>,
+    input_controller_query: Query<(Entity, &InputController), With<Inactive>>,
 ) {
     if !input_queue.0.is_empty() {
         warn!("InputControllerQueue was not empty at beginning of PreTick, clearing queue");

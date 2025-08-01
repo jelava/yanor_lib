@@ -1,15 +1,19 @@
+mod player;
+
 use bevy::prelude::*;
-use yanor_core::{
-    activity::*,
-    grid::*,
-    input::*,
-    tick::*,
-};
+use yanor_core::{activity::*, grid::*, input::*, tick::*};
+
+use crate::player::Player;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins((ActivityPlugin, InputControllerPlugin, SparseGridIndexPlugin::default(), TickPlugin))
+        .add_plugins((DefaultPlugins, MeshPickingPlugin))
+        .add_plugins((
+            ActivityPlugin,
+            InputControllerPlugin,
+            SparseGridIndexPlugin::default(),
+            TickPlugin,
+        ))
         .add_systems(Startup, (init_asset_handles, spawn_stuff).chain())
         .add_systems(PostStartup, start_ticking)
         .run();
@@ -56,10 +60,10 @@ fn init_asset_handles(
 }
 
 #[derive(Component)]
-struct Player;
+struct Block;
 
 #[derive(Component)]
-struct Block;
+struct CellHighlight;
 
 const MAZE_SIZE: i32 = 25;
 
@@ -68,28 +72,54 @@ fn spawn_stuff(mut commands: Commands, asset_handles: Res<AssetHandles>) {
         Player,
         InputController { queue_priority: 0 },
         GridPosition::new(0, 1, 0),
-        Transform::from_xyz(0.0, 1.0, 0.0)
-            .looking_at(Vec3::new(0.0, 5.0, -5.0), Dir3::Y),
+        Transform::from_xyz(0.0, 1.0, 0.0).looking_at(Vec3::new(0.0, 5.0, -5.0), Dir3::Y),
         Mesh3d(asset_handles.player_mesh_handle.clone()),
         MeshMaterial3d(asset_handles.player_material_handle.clone()),
+        Pickable {
+            should_block_lower: false,
+            is_hoverable: false,
+        },
     ));
 
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 5.0, -5.0)
-            .looking_at(Vec3::new(0.0, 1.0, 0.0), Dir3::Y),
+        Transform::from_xyz(0.0, 5.0, -5.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Dir3::Y),
     ));
 
     for x in 0..MAZE_SIZE {
         for z in 0..MAZE_SIZE {
-            commands.spawn((
-                Block,
-                GridPosition(IVec3::new(x, 0, z)),
-                Transform::from_xyz(x as f32, 0.0, z as f32),
-                Mesh3d(asset_handles.block_mesh_handle.clone()),
-                MeshMaterial3d(asset_handles.block_material_handle.clone()),
-            ));
-            // .observe(on_board_hover);
+            commands
+                .spawn((
+                    Block,
+                    GridPosition(IVec3::new(x, 0, z)),
+                    Transform::from_xyz(x as f32, 0.0, z as f32),
+                    Mesh3d(asset_handles.block_mesh_handle.clone()),
+                    MeshMaterial3d(asset_handles.block_material_handle.clone()),
+                ))
+                .observe(on_block_hover);
         }
+    }
+
+    commands.spawn((
+        CellHighlight,
+        Transform::from_xyz(0.0, 1.0, 0.0),
+        Mesh3d(asset_handles.block_mesh_handle.clone()),
+        MeshMaterial3d(asset_handles.highlight_material_handle.clone()),
+        Pickable {
+            should_block_lower: false,
+            is_hoverable: false,
+        },
+    ));
+}
+
+fn on_block_hover(
+    trigger: Trigger<Pointer<Over>>,
+    mut cell_highlight_transform: Single<&mut Transform, With<CellHighlight>>,
+    transform_query: Query<&Transform, (With<Block>, Without<CellHighlight>)>,
+) {
+    if let Ok(&board_transform) = transform_query.get(trigger.target()) {
+        cell_highlight_transform.translation = board_transform.translation + Vec3::Y;
+    } else {
+        warn!("Hovered Block has no Transform");
     }
 }

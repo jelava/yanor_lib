@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{dev_tools::states::log_transitions, prelude::*};
 use bevy_rand::prelude::*;
 use rand::Rng;
 use yanor_core::{
@@ -10,11 +10,12 @@ use yanor_core::{
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, EntropyPlugin::<WyRand>::default()))
-        .add_plugins((ActivityPlugin, InputControllerPlugin, TickPlugin))
+        .add_plugins((InputControllerPlugin, TickPlugin))
         .insert_resource(RoundCounter {
             current_round: 0,
-            num_rounds: 5,
+            num_rounds: 25,
         })
+        .init_activity::<RpsActivity>()
         .add_systems(Startup, spawn_players)
         .add_systems(PostStartup, start_ticking)
         .add_systems(
@@ -30,10 +31,14 @@ fn main() {
         )
         .add_systems(
             Update,
-            process_active_input_controller.run_if(in_state(TickState::PreTick)),
+            (
+                process_active_input_controller.run_if(in_state(TickState::PreTick)),
+                log_transitions::<TickState>,
+            ),
         )
         .add_systems(OnExit(TickState::PostTick), increment_round_counter)
         .add_observer(announce_active_input_controller)
+        .add_observer(remove_scored_marker_when_rps_activity_done)
         .run();
 }
 
@@ -59,6 +64,8 @@ struct RoundCounter {
 fn spawn_players(mut commands: Commands) {
     commands.spawn((PlayerId(0), InputController { queue_priority: 0 }));
     commands.spawn((PlayerId(1), RandomController));
+    commands.spawn((PlayerId(2), InputController { queue_priority: 1 }));
+    commands.spawn((PlayerId(3), RockController));
 }
 
 fn increment_round_counter(
@@ -75,6 +82,7 @@ fn increment_round_counter(
             "{} rounds finished, game is finished.",
             round_counter.current_round
         );
+
         app_exit.write(AppExit::Success);
 
         for (player, score) in &score_query {
@@ -93,31 +101,29 @@ fn increment_round_counter(
 
 // Trivially simple - always chooses rock
 #[derive(Component)]
-#[require(Idle)]
+#[require(Inactive)]
 struct RockController;
 
 fn process_idle_rock_controllers(
     mut commands: Commands,
-    rock_controller_query: Query<(Entity, &PlayerId), (With<RockController>, With<Idle>)>,
+    rock_controller_query: Query<(Entity, &PlayerId), (With<RockController>, With<Inactive>)>,
 ) {
     for (entity, player) in &rock_controller_query {
         info!("{player:?} chooses Rock");
 
-        commands
-            .entity(entity)
-            .insert(CurrentActivity(RpsActivity::Rock));
+        commands.entity(entity).insert(Active(RpsActivity::Rock));
     }
 }
 
 // Chooses what to do randomly
 #[derive(Component)]
-#[require(Idle)]
+#[require(Inactive)]
 struct RandomController;
 
 fn process_idle_random_controllers(
     mut commands: Commands,
     mut rng: GlobalEntropy<WyRand>,
-    random_controller_query: Query<(Entity, &PlayerId), (With<RandomController>, With<Idle>)>,
+    random_controller_query: Query<(Entity, &PlayerId), (With<RandomController>, With<Inactive>)>,
 ) {
     for (entity, player) in &random_controller_query {
         let activity = match rng.random_range(0..3) {
@@ -128,7 +134,7 @@ fn process_idle_random_controllers(
 
         info!("{player:?} chooses {activity:?}");
 
-        commands.entity(entity).insert(CurrentActivity(activity));
+        commands.entity(entity).insert(Active(activity));
     }
 }
 
@@ -147,7 +153,7 @@ fn process_active_input_controller(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     active_input_controller_query: Single<
         (Entity, &PlayerId),
-        (With<ActiveInputController>, With<Idle>),
+        (With<ActiveInputController>, With<Inactive>),
     >,
 ) {
     let (entity, player) = *active_input_controller_query;
@@ -155,21 +161,17 @@ fn process_active_input_controller(
     if keyboard_input.just_pressed(KeyCode::KeyR) {
         info!("{player:?} chooses Rock");
 
-        commands
-            .entity(entity)
-            .insert(CurrentActivity(RpsActivity::Rock));
+        commands.entity(entity).insert(Active(RpsActivity::Rock));
     } else if keyboard_input.just_pressed(KeyCode::KeyP) {
         info!("{player:?} chooses Paper");
 
-        commands
-            .entity(entity)
-            .insert(CurrentActivity(RpsActivity::Paper));
+        commands.entity(entity).insert(Active(RpsActivity::Paper));
     } else if keyboard_input.just_pressed(KeyCode::KeyS) {
         info!("{player:?} chooses Scissors");
 
         commands
             .entity(entity)
-            .insert(CurrentActivity(RpsActivity::Scissors));
+            .insert(Active(RpsActivity::Scissors));
     }
 }
 
@@ -182,7 +184,12 @@ enum RpsActivity {
     Scissors,
 }
 
+#[derive(Clone)]
+struct RpsPhase;
+
 impl Activity for RpsActivity {
+    type Phase = RpsPhase;
+
     fn name(&self) -> String {
         use RpsActivity::*;
 
@@ -194,14 +201,18 @@ impl Activity for RpsActivity {
         .into()
     }
 
-    fn phase_queue(&self) -> ActivityPhaseQueue {
-        ActivityPhaseQueue::new(
-            [ActivityPhase {
-                name: "whatever".into(),
-                duration: 1,
-            }]
-            .into(),
-        )
+    fn phase_queue(&self) -> ActivityPhaseQueue<Self::Phase> {
+        ActivityPhaseQueue::new([RpsPhase].into())
+    }
+}
+
+impl ActivityPhase for RpsPhase {
+    fn name(&self) -> String {
+        "whatever".into()
+    }
+
+    fn duration(&self) -> usize {
+        5
     }
 }
 
@@ -211,16 +222,20 @@ enum RpsOutcome {
     Player2Wins,
 }
 
+#[derive(Component)]
+struct RpsActivityScored;
+
 fn do_rps_activities(
     mut commands: Commands,
     mut rps_query: Query<
         (
             Entity,
             &PlayerId,
-            &CurrentActivity<RpsActivity>,
+            &Active<RpsActivity>,
+            Has<RpsActivityScored>,
             &mut ScoreTracker,
         ),
-        With<NeedsTick>,
+        With<PendingTick>,
     >,
 ) {
     use {RpsActivity::*, RpsOutcome::*};
@@ -229,46 +244,60 @@ fn do_rps_activities(
 
     while let Some(
         [
-            (entity1, player1, CurrentActivity(activity1), mut score1),
-            (entity2, player2, CurrentActivity(activity2), mut score2),
+            (entity1, player1, Active(activity1), is_scored1, mut score1),
+            (entity2, player2, Active(activity2), is_scored2, mut score2),
         ],
     ) = iter.fetch_next()
     {
-        let player_description = format!("Player {player1:?} v. player {player2:?}");
+        if !is_scored1 && !is_scored2 {
+            let player_description = format!("Player {player1:?} v. player {player2:?}");
 
-        let (move_description, outcome) = match (activity1, activity2) {
-            (Rock, Rock) | (Paper, Paper) | (Scissors, Scissors) => {
-                (format!("both chose {activity1:?}"), Tie)
-            }
-            (Rock, Paper) => ("rock covered by paper".into(), Player2Wins),
-            (Rock, Scissors) => ("rock breaks scissors".into(), Player1Wins),
-            (Paper, Rock) => ("paper covers rock".into(), Player1Wins),
-            (Paper, Scissors) => ("paper cut by scissors".into(), Player2Wins),
-            (Scissors, Rock) => ("scissors broken by rock".into(), Player2Wins),
-            (Scissors, Paper) => ("scissors cut paper".into(), Player1Wins),
-        };
+            let (move_description, outcome) = match (activity1, activity2) {
+                (Rock, Rock) | (Paper, Paper) | (Scissors, Scissors) => {
+                    (format!("both chose {activity1:?}"), Tie)
+                }
+                (Rock, Paper) => ("rock covered by paper".into(), Player2Wins),
+                (Rock, Scissors) => ("rock breaks scissors".into(), Player1Wins),
+                (Paper, Rock) => ("paper covers rock".into(), Player1Wins),
+                (Paper, Scissors) => ("paper cut by scissors".into(), Player2Wins),
+                (Scissors, Rock) => ("scissors broken by rock".into(), Player2Wins),
+                (Scissors, Paper) => ("scissors cut paper".into(), Player1Wins),
+            };
 
-        let outcome_description = match outcome {
-            Tie => {
-                score1.ties += 1;
-                score2.ties += 1;
-                "Tie".into()
-            }
-            Player1Wins => {
-                score1.wins += 1;
-                score2.losses += 1;
-                format!("Player {player1:?} wins")
-            }
-            Player2Wins => {
-                score1.losses += 1;
-                score2.wins += 1;
-                format!("Player {player2:?} wins")
-            }
-        };
+            let outcome_description = match outcome {
+                Tie => {
+                    score1.ties += 1;
+                    score2.ties += 1;
+                    "Tie".into()
+                }
+                Player1Wins => {
+                    score1.wins += 1;
+                    score2.losses += 1;
+                    format!("Player {player1:?} wins")
+                }
+                Player2Wins => {
+                    score1.losses += 1;
+                    score2.wins += 1;
+                    format!("Player {player2:?} wins")
+                }
+            };
 
-        info!("{player_description}: {move_description}. {outcome_description}!");
+            info!("{player_description}: {move_description}. {outcome_description}!");
 
-        commands.entity(entity1).insert(TickDone);
-        commands.entity(entity2).insert(TickDone);
+            commands.entity(entity1).insert(RpsActivityScored);
+            commands.entity(entity2).insert(RpsActivityScored);
+        }
+
+        commands.entity(entity1).try_remove::<PendingTick>();
+        commands.entity(entity2).try_remove::<PendingTick>();
     }
+}
+
+fn remove_scored_marker_when_rps_activity_done(
+    trigger: Trigger<OnRemove, Active<RpsActivity>>,
+    mut commands: Commands,
+) {
+    commands
+        .entity(trigger.target())
+        .remove::<RpsActivityScored>();
 }
