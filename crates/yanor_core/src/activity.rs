@@ -98,10 +98,10 @@ fn finish_pre_tick_if_active<A: Activity>(
 }
 
 #[derive(Event)]
-pub struct BeginActivityPhase<P: ActivityPhase>(P);
+pub struct BeginActivityPhase<P: ActivityPhase>(pub P);
 
 #[derive(Event)]
-pub struct FinishActivityPhase<P: ActivityPhase>(P);
+pub struct FinishActivityPhase<P: ActivityPhase>(pub P);
 
 fn advance_activity_phase_queues<A: Activity>(
     mut commands: Commands,

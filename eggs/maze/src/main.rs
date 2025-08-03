@@ -1,9 +1,11 @@
+mod animation;
 mod player;
+mod ui;
 
 use bevy::prelude::*;
 use yanor_core::{grid::*, input::*, tick::*};
 
-use crate::player::Player;
+use crate::{animation::*, player::*, ui::*};
 
 fn main() {
     App::new()
@@ -13,9 +15,15 @@ fn main() {
             SparseGridIndexPlugin::default(),
             TickPlugin,
         ))
+        .add_plugins((AnimateMovementPlugin, PlayerPlugin, UiPlugin))
         .add_systems(Startup, (init_asset_handles, spawn_stuff).chain())
         .add_systems(PostStartup, start_ticking)
+        // .add_systems(FixedUpdate, announce_tick_state)
         .run();
+
+    // fn announce_tick_state(state: Res<State<TickState>>) {
+    //     info!("{:?}", state.get());
+    // }
 }
 
 #[derive(Resource)]
@@ -64,14 +72,21 @@ struct Block;
 #[derive(Component)]
 struct CellHighlight;
 
-const MAZE_SIZE: i32 = 25;
+const MAZE_SIZE: i32 = 24;
 
 fn spawn_stuff(mut commands: Commands, asset_handles: Res<AssetHandles>) {
+    let player_pos = Vec3::new(12.0, 1.0, 12.0);
+    let camera_pos = player_pos + Vec3::new(0.0, 5.0, -5.0);
+
     commands.spawn((
         Player,
         InputController { queue_priority: 0 },
-        GridPosition::new(0, 1, 0),
-        Transform::from_xyz(0.0, 1.0, 0.0).looking_at(Vec3::new(0.0, 5.0, -5.0), Dir3::Y),
+        GridPosition::new(
+            player_pos.x as i32,
+            player_pos.y as i32,
+            player_pos.z as i32,
+        ),
+        Transform::from_translation(player_pos).looking_at(camera_pos, Dir3::Y),
         Mesh3d(asset_handles.player_mesh_handle.clone()),
         MeshMaterial3d(asset_handles.player_material_handle.clone()),
         Pickable {
@@ -82,7 +97,7 @@ fn spawn_stuff(mut commands: Commands, asset_handles: Res<AssetHandles>) {
 
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 5.0, -5.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Dir3::Y),
+        Transform::from_translation(camera_pos).looking_at(player_pos, Dir3::Y),
     ));
 
     for x in 0..MAZE_SIZE {

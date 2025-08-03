@@ -7,14 +7,37 @@ impl Plugin for TickPlugin {
     fn build(&self, app: &mut App) {
         use TickState::*;
 
-        // tick_state_setup needs to run *before* any systems scheduled for OnEnter<TickState>, so
-        // run it OnExit of the old state instead (OnExit runs before OnEnter, see
-        // https://docs.rs/bevy/latest/bevy/state/state/enum.StateTransitionSteps.html)
+        // tick_state_setup will run after OnExit for the old state and before OnEnter for the new
+        // state (see https://docs.rs/bevy/latest/bevy/state/state/enum.StateTransitionSteps.html)
         app.init_state::<TickState>()
-            .add_systems(OnExit(NotYetTicking), tick_state_setup::<PendingPreTick>)
-            .add_systems(OnExit(PreTick), tick_state_setup::<PendingTick>)
-            .add_systems(OnExit(Tick), tick_state_setup::<PendingPostTick>)
-            .add_systems(OnExit(PostTick), tick_state_setup::<PendingPreTick>);
+            .add_systems(
+                OnTransition {
+                    exited: NotYetTicking,
+                    entered: PreTick,
+                },
+                tick_state_setup::<PendingPreTick>,
+            )
+            .add_systems(
+                OnTransition {
+                    exited: PreTick,
+                    entered: Tick,
+                },
+                tick_state_setup::<PendingTick>,
+            )
+            .add_systems(
+                OnTransition {
+                    exited: Tick,
+                    entered: PostTick,
+                },
+                tick_state_setup::<PendingPostTick>,
+            )
+            .add_systems(
+                OnTransition {
+                    exited: PostTick,
+                    entered: PreTick,
+                },
+                tick_state_setup::<PendingPreTick>,
+            );
     }
 }
 
@@ -86,6 +109,6 @@ fn on_pending_component_remove<C: Component>(
         next_tick_state.set(tick_state.get().next());
         commands.entity(trigger.observer()).despawn();
     } else {
-        info!("target of trigger is not last remaining pending?");
+        warn!("Target of trigger is not the same as last remaining enity in pending query");
     }
 }
