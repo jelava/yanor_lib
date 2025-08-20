@@ -1,4 +1,8 @@
+pub mod timing;
+
 use bevy::prelude::*;
+
+pub use timing::{TickStopwatch, TickTimer};
 
 pub struct TickPlugin;
 

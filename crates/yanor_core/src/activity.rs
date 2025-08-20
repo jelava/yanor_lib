@@ -4,8 +4,9 @@ use bevy::{
     ecs::{component::HookContext, world::DeferredWorld},
     prelude::*,
 };
+// use enum_map::EnumArray;
 
-use crate::{input::ActiveInputController, tick::*};
+use crate::{input::ActiveInputController, stats::{StatBlock, StatId}, tick::*};
 
 pub trait ActivityApp {
     fn init_activity<A: Activity>(&mut self) -> &mut App;
@@ -31,21 +32,26 @@ pub trait Activity: Send + Sync + 'static {
 
 pub trait ActivityPhase: Clone + Send + Sync {
     fn name(&self) -> String;
-    fn duration(&self) -> usize;
+    fn duration(&self) -> StatId;
 }
 
 #[derive(Component)]
+#[require(StatBlock<u32>)]
 pub struct ActivityPhaseQueue<P: ActivityPhase> {
     queue: VecDeque<P>,
-    pub ticks_to_next_phase: usize,
+    phase_timer: TickTimer,
 }
 
 impl<P: ActivityPhase> ActivityPhaseQueue<P> {
     pub fn new(queue: VecDeque<P>) -> Self {
         Self {
-            ticks_to_next_phase: queue.front().map_or(0, |phase| phase.duration()),
             queue,
+            phase_timer: TickTimer::new(0), // the actual duration of the timer will be set in advance_activity_phase_queues
         }
+    }
+
+    fn peek(&self) -> Option<&P> {
+        self.queue.front()
     }
 
     // Return both the previous (just removed) phase and the new current phase
@@ -79,7 +85,7 @@ fn init_phase_queue<A: Activity>(
         world
             .commands()
             .entity(entity)
-            .insert(phase_queue)
+            .insert(phase_queue) // TODO: instead of
             .remove::<PendingPreTick>()
             .try_remove::<Inactive>()
             .try_remove::<ActiveInputController>();
@@ -105,29 +111,40 @@ pub struct FinishActivityPhase<P: ActivityPhase>(pub P);
 
 fn advance_activity_phase_queues<A: Activity>(
     mut commands: Commands,
-    mut queue_query: Query<(Entity, &mut ActivityPhaseQueue<A::Phase>)>,
+    mut queue_query: Query<(Entity, &mut ActivityPhaseQueue<A::Phase>, &StatBlock<u32>)>,
 ) {
-    for (entity, mut queue) in &mut queue_query {
-        if queue.ticks_to_next_phase > 1 {
-            queue.ticks_to_next_phase -= 1;
-        } else {
-            // phase change
-            let (maybe_old_phase, maybe_new_phase) = queue.pop();
+    for (entity, mut queue, stats) in &mut queue_query {
+        if let Some(phase) = queue.peek() {
+            // Check the actual value of the duration every time, because it may change from
+            // between ticks (i.e. a speed buff being applied and/or expiring)
+            // TODO: change to get() once adjusted stats implemented
+            let phase_duration = match stats.get_base(&phase.duration()) {
+                Some(&duration) => duration,
+                None => {
+                    warn!("StatBlock has no value for the duration stat of the current ActivityPhase, setting duration to 1 tick");
+                    1
+                }
+            };
 
-            if let Some(old_phase) = maybe_old_phase {
-                commands.trigger_targets(FinishActivityPhase(old_phase), entity);
-            }
+            queue.phase_timer.set_duration(phase_duration);
 
-            if let Some(new_phase) = maybe_new_phase {
-                commands.trigger_targets(BeginActivityPhase(new_phase.clone()), entity);
+            if queue.phase_timer.tick(1).finished() {
+                let (maybe_old_phase, maybe_new_phase) = queue.pop();
 
-                queue.ticks_to_next_phase = new_phase.duration();
-            } else {
-                commands
+                if let Some(old_phase) = maybe_old_phase {
+                    commands.trigger_targets(FinishActivityPhase(old_phase), entity);
+                }
+
+                if let Some(new_phase) = maybe_new_phase {
+                    commands.trigger_targets(BeginActivityPhase(new_phase.clone()), entity);
+                    queue.phase_timer.reset();
+                } else {
+                    commands
                     .entity(entity)
                     .remove::<ActivityPhaseQueue<A::Phase>>()
                     .remove::<Active<A>>()
                     .insert(Inactive);
+                }
             }
         }
 

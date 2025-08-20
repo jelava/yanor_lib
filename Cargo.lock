@@ -5269,7 +5269,7 @@ checksum = "a62ce76d9b56901b19a74f19431b0d8b3bc7ca4ad685a746dfd78ca8f4fc6bda"
 
 [[package]]
 name = "yanor_core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "bevy",
 ]

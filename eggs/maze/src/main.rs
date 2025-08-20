@@ -1,29 +1,30 @@
 mod animation;
 mod player;
+mod step;
 mod ui;
 
-use bevy::prelude::*;
-use yanor_core::{grid::*, input::*, tick::*};
+use bevy::{dev_tools::states::log_transitions, prelude::*};
+use bevy_rand::prelude::*;
+use rand::Rng;
+use yanor_core::{activity::*, grid::*, input::*, stats::{StatBlock, StatId}, tick::*};
 
-use crate::{animation::*, player::*, ui::*};
+use crate::{animation::*, player::*, step::*, ui::*};
 
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MeshPickingPlugin))
         .add_plugins((
+            EntropyPlugin::<WyRand>::default(),
             InputControllerPlugin,
             SparseGridIndexPlugin::default(),
             TickPlugin,
         ))
-        .add_plugins((AnimateMovementPlugin, PlayerPlugin, UiPlugin))
+        .add_plugins((AnimateMovementPlugin, PlayerPlugin, StepPlugin, UiPlugin))
         .add_systems(Startup, (init_asset_handles, spawn_stuff).chain())
         .add_systems(PostStartup, start_ticking)
-        // .add_systems(FixedUpdate, announce_tick_state)
+        .add_systems(FixedUpdate, process_random_step_controllers.run_if(in_state(TickState::PreTick)))
+        .add_systems(OnEnter(TickState::PreTick), count_ticks)
         .run();
-
-    // fn announce_tick_state(state: Res<State<TickState>>) {
-    //     info!("{:?}", state.get());
-    // }
 }
 
 #[derive(Resource)]
@@ -76,17 +77,19 @@ const MAZE_SIZE: i32 = 24;
 
 fn spawn_stuff(mut commands: Commands, asset_handles: Res<AssetHandles>) {
     let player_pos = Vec3::new(12.0, 1.0, 12.0);
-    let camera_pos = player_pos + Vec3::new(0.0, 5.0, -5.0);
+    let camera_offset = Vec3::new(0.0, 5.0, -5.0);
+    let camera_pos = player_pos + camera_offset;
 
     commands.spawn((
         Player,
+        StatBlock::new(&[(MOVE_SPEED_STAT_ID, 2u32)]),
         InputController { queue_priority: 0 },
         GridPosition::new(
             player_pos.x as i32,
             player_pos.y as i32,
             player_pos.z as i32,
         ),
-        Transform::from_translation(player_pos).looking_at(camera_pos, Dir3::Y),
+        Transform::from_translation(player_pos).looking_to(-camera_offset.normalize(), Dir3::Y),
         Mesh3d(asset_handles.player_mesh_handle.clone()),
         MeshMaterial3d(asset_handles.player_material_handle.clone()),
         Pickable {
@@ -94,6 +97,26 @@ fn spawn_stuff(mut commands: Commands, asset_handles: Res<AssetHandles>) {
             is_hoverable: false,
         },
     ));
+
+    let npc_info = [
+        (Vec3::new(8.0, 1.0, 12.0), 1u32),
+        (Vec3::new(16.0, 1.0, 12.0), 4u32),
+    ];
+
+    for (pos, speed) in npc_info {
+        commands.spawn((
+            RandomStepController,
+            StatBlock::new(&[(MOVE_SPEED_STAT_ID, speed)]),
+            GridPosition::new(pos.x as i32, pos.y as i32, pos.z as i32),
+            Transform::from_translation(pos).looking_to(-camera_offset.normalize(), Dir3::Y),
+            Mesh3d(asset_handles.player_mesh_handle.clone()),
+            MeshMaterial3d(asset_handles.player_material_handle.clone()),
+            Pickable {
+                should_block_lower: false,
+                is_hoverable: false,
+            },
+        ));
+    }
 
     commands.spawn((
         Camera3d::default(),
@@ -126,6 +149,11 @@ fn spawn_stuff(mut commands: Commands, asset_handles: Res<AssetHandles>) {
     ));
 }
 
+fn count_ticks(mut stopwatch: Local<TickStopwatch>) {
+    info!("=== tick {} ===", stopwatch.elapsed_ticks());
+    stopwatch.tick(1);
+}
+
 fn on_block_hover(
     trigger: Trigger<Pointer<Over>>,
     mut cell_highlight_transform: Single<&mut Transform, With<CellHighlight>>,
@@ -135,5 +163,35 @@ fn on_block_hover(
         cell_highlight_transform.translation = board_transform.translation + Vec3::Y;
     } else {
         warn!("Hovered Block has no Transform");
+    }
+}
+
+#[derive(Component)]
+#[require(Inactive)]
+struct RandomStepController;
+
+fn process_random_step_controllers(
+    mut commands: Commands,
+    mut rng: GlobalEntropy<WyRand>,
+    controller_query: Query<Entity, (With<RandomStepController>, With<Inactive>, With<PendingPreTick>)>,
+) {
+    use AxisDirection::*;
+
+    for entity in controller_query {
+        let x_dir = match rng.random_range(0..3) {
+            0 => Zero,
+            1 => Plus,
+            _ => Minus,
+        };
+
+        let z_dir = match rng.random_range(0..3) {
+            0 => Zero,
+            1 => Plus,
+            _ => Minus,
+        };
+
+        commands
+            .entity(entity)
+            .insert(Active(Step(GridDirection::new(x_dir, Zero, z_dir))));
     }
 }
