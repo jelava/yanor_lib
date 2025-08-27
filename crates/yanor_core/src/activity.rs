@@ -17,8 +17,8 @@ impl ActivityApp for App {
     fn init_activity<A: Activity>(&mut self) -> &mut App {
         self.add_systems(OnEnter(TickState::PreTick), finish_pre_tick_if_active::<A>)
             .add_systems(
-                OnEnter(TickState::PostTick),
-                advance_activity_phase_queues::<A>,
+                FixedUpdate,
+                advance_activity_phase_queues::<A>.run_if(in_state(TickState::Tick)),
             )
     }
 }
@@ -111,7 +111,7 @@ pub struct FinishActivityPhase<P: ActivityPhase>(pub P);
 
 fn advance_activity_phase_queues<A: Activity>(
     mut commands: Commands,
-    mut queue_query: Query<(Entity, &mut ActivityPhaseQueue<A::Phase>, &StatBlock<u32>)>,
+    mut queue_query: Query<(Entity, &mut ActivityPhaseQueue<A::Phase>, &StatBlock<u32>), With<PendingTick>>,
 ) {
     for (entity, mut queue, stats) in &mut queue_query {
         if let Some(phase) = queue.peek() {
@@ -148,6 +148,6 @@ fn advance_activity_phase_queues<A: Activity>(
             }
         }
 
-        commands.entity(entity).remove::<PendingPostTick>();
+        commands.entity(entity).remove::<PendingTick>();
     }
 }

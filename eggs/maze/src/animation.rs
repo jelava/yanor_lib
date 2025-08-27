@@ -1,41 +1,30 @@
 use std::{collections::VecDeque, time::Duration};
 
-use bevy::prelude::*;
+use bevy::{prelude::*, transform::commands};
 use bevy_tweening::{*, lens::TransformPositionLens};
 use yanor_core::{
     grid::GridPosition,
-    tick::TickState,
+    tick::{PendingPostTick, TickState, Tickable},
 };
 
 // TODO: better name
-pub struct AnimateMovementPlugin;
+pub struct AnimationPresenterPlugin;
 
-impl Plugin for AnimateMovementPlugin {
+impl Plugin for AnimationPresenterPlugin {
     fn build(&self, app: &mut App) {
-        use AnimationState::*;
-
         app.add_plugins(TweeningPlugin)
-            .init_state::<AnimationState>()
             .init_resource::<AnimationConfig>()
             .init_resource::<AnimationQueue>()
-            .add_systems(OnExit(TickState::PostTick), check_for_pending_animations)
-            .add_systems(OnEnter(AnimatingAll), start_all_animations)
-            .add_systems(OnEnter(AnimatingSequential), start_next_animation)
+            .add_systems(OnEnter(TickState::PostTick), (start_animating, finish_post_tick_if_no_animation))
+            // .add_systems(OnEnter(AnimatingAll), start_all_animations)
+            // .add_systems(OnEnter(AnimatingSequential), start_next_animation)
             .add_systems(
                 FixedUpdate,
-                skip_animation_on_input.run_if(not(in_state(NotAnimating))),
+                skip_animation_on_input.run_if(in_state(TickState::PostTick)),
             )
             .add_observer(queue_step_animation_observer)
             .add_observer(on_tween_completed);
     }
-}
-
-#[derive(States, Debug, Clone, Copy, Default, Eq, PartialEq, Hash)]
-enum AnimationState {
-    #[default]
-    NotAnimating,
-    AnimatingAll,
-    AnimatingSequential,
 }
 
 #[derive(Resource)]
@@ -61,21 +50,34 @@ enum PendingAnimation {
     Step,
 }
 
-fn check_for_pending_animations(
+fn start_animating(
+    mut commands: Commands,
     anim_config: Res<AnimationConfig>,
     mut anim_queue: ResMut<AnimationQueue>,
-    mut next_anim_state: ResMut<NextState<AnimationState>>,
+    pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
 ) {
-    if !anim_queue.is_empty() {
-        // todo!("Pause ticking");
+    info!("henlo");
 
+    if !anim_queue.is_empty() {
         if anim_config.sequential_animations {
-            next_anim_state.set(AnimationState::AnimatingSequential);
+            // next_anim_state.set(AnimationState::AnimatingSequential);
+            start_next_animation(commands, anim_config, anim_queue, pending_animation_query);
         } else {
             // For non-sequential animation the queue is not necessary so go ahead and clear it
             anim_queue.clear();
-            next_anim_state.set(AnimationState::AnimatingAll);
+            start_all_animations(commands, anim_config, pending_animation_query);
         }
+    }
+}
+
+fn finish_post_tick_if_no_animation(
+    mut commands: Commands,
+    no_animation_query: Query<Entity, (With<Tickable>, With<PendingPostTick>, Without<PendingAnimation>)>,
+) {
+    for entity in no_animation_query {
+        commands
+            .entity(entity)
+            .remove::<PendingPostTick>();
     }
 }
 
@@ -84,13 +86,15 @@ fn start_all_animations(
     anim_config: Res<AnimationConfig>,
     pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
 ) {
-    info!("all");
+    info!("1");
 
     for (entity, pending_animation, transform, grid_pos) in pending_animation_query {
+        info!("ooga booga");
+
         commands
             .entity(entity)
             .remove::<PendingAnimation>()
-            .insert(create_animator(anim_config.animation_length, (pending_animation, transform, grid_pos)));
+            .insert(create_step_animator(anim_config.animation_length, (pending_animation, transform, grid_pos)));
     }
 }
 
@@ -98,27 +102,25 @@ fn start_next_animation(
     mut commands: Commands,
     anim_config: Res<AnimationConfig>,
     mut anim_queue: ResMut<AnimationQueue>,
-    mut next_anim_state: ResMut<NextState<AnimationState>>,
-    pending_animation_query: Query<(&PendingAnimation, &Transform, &GridPosition)>,
+    pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
 ) {
+    info!("2");
+
     if let Some(entity) = anim_queue.pop_front() {
         info!("next in q");
 
-        if let Ok(anim_components) = pending_animation_query.get(entity) {
+        if let Ok((_, pending_animation, transform, grid_pos)) = pending_animation_query.get(entity) {
             commands
                 .entity(entity)
                 .remove::<PendingAnimation>()
-                .insert(create_animator(anim_config.animation_length, anim_components));
+                .insert(create_step_animator(anim_config.animation_length, (pending_animation, transform, grid_pos)));
         } else {
             warn!("Entity in animation queue not found in query (possibly missing needed components)");
         }
-    } else {
-        info!("q empty");
-        next_anim_state.set(AnimationState::NotAnimating);
     }
 }
 
-fn create_animator(
+fn create_step_animator(
     animation_length: Duration,
     anim_components: (&PendingAnimation, &Transform, &GridPosition),
 ) -> Animator<Transform> {
@@ -144,6 +146,7 @@ fn skip_animation_on_input(
 ) {
     if keyboard_input.get_just_pressed().next().is_some() {
         for mut animator in &mut animator_query {
+            // TODO? change to 1.0? there might be reliability issues that way though, i forgor
             animator.tweenable_mut().set_progress(0.99);
         }
     }
@@ -154,10 +157,10 @@ fn queue_step_animation_observer(
     mut commands: Commands,
     mut anim_queue: ResMut<AnimationQueue>,
 ) {
+    info!("pend");
+
     let entity = trigger.target();
-
     anim_queue.push_back(entity);
-
     commands.entity(entity).insert(PendingAnimation::Step);
 }
 
@@ -166,19 +169,16 @@ fn on_tween_completed(
     mut commands: Commands,
     anim_config: Res<AnimationConfig>,
     mut anim_queue: ResMut<AnimationQueue>,
-    current_anim_state: Res<State<AnimationState>>,
-    mut next_anim_state: ResMut<NextState<AnimationState>>,
-    pending_animation_query: Query<(&PendingAnimation, &Transform, &GridPosition)>,
+    pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
 ) {
     info!("tc");
 
     commands
         .entity(trigger.target())
-        .remove::<Animator<Transform>>();
+        .remove::<Animator<Transform>>()
+        .remove::<PendingPostTick>();
 
-    match current_anim_state.get() {
-        AnimationState::AnimatingAll => next_anim_state.set(AnimationState::NotAnimating),
-        AnimationState::AnimatingSequential => start_next_animation(commands, anim_config, anim_queue, next_anim_state, pending_animation_query),
-        AnimationState::NotAnimating => warn!("TweenCompleted fired while in NotAnimating state"),
-    };
+    if anim_config.sequential_animations {
+        start_next_animation(commands, anim_config, anim_queue, pending_animation_query);
+    }
 }

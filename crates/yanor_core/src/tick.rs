@@ -47,9 +47,24 @@ impl Plugin for TickPlugin {
 
 /// A tick is a single discrete step forward in the game simulation, and each TickState represents
 /// a different stage of the tick. The most important states here are the PreTick, Tick, and
-/// PostTick states, since they are the actual phases of the tick and are somewhat analogous in
-/// purpose to Bevy's PreUpdate, Update, and PostUpdate schedules.
-#[derive(States, Debug, Clone, Copy, Default, Eq, PartialEq, Hash)]
+/// PostTick states, since they are useful for scheduling most tick-related systems and are
+/// somewhat analogous in purpose to Bevy's PreUpdate, Update, and PostUpdate schedules.
+///
+/// TODO: explain how tick phases progress via marker components for pending phase
+///
+/// The PresentTick state is for presentation of state changes in between ticks. For a local game
+/// client, presentation might consist of playing animations to show any actions that occurred
+/// during the tick. For a game running on a server, on the other hand, presentation might instead
+/// be sending out updates over the network to clients.
+///
+/// Making a dedicated state for presentation logic is useful because it allows presentation
+/// concerns to be decoupled from the specific details of tick phases (which are primarily useful
+/// for Tickable entity logic) without occurring completely independently of the tick loop. This
+/// is important, for example, when playing animations to present state changes to a user because
+/// if the tick loop simply continues running while previous state changes are animated then the
+/// animations will eventually end up falling behind the current state of the game in ways that
+/// could be confusing.
+#[derive(States, Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
 pub enum TickState {
     #[default]
     NotYetTicking,
@@ -106,11 +121,11 @@ fn on_pending_component_remove<C: Component>(
     trigger: Trigger<OnRemove, C>,
     mut commands: Commands,
     tick_state: Res<State<TickState>>,
-    mut next_tick_state: ResMut<NextState<TickState>>,
+    mut next_tick_phase: ResMut<NextState<TickState>>,
     last_pending_query: Single<Entity, With<C>>,
 ) {
     if *last_pending_query == trigger.target() {
-        next_tick_state.set(tick_state.get().next());
+        next_tick_phase.set(tick_state.get().next());
         commands.entity(trigger.observer()).despawn();
     } else {
         warn!("Target of trigger is not the same as last remaining enity in pending query");

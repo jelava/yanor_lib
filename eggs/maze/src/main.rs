@@ -19,11 +19,12 @@ fn main() {
             SparseGridIndexPlugin::default(),
             TickPlugin,
         ))
-        .add_plugins((AnimateMovementPlugin, PlayerPlugin, StepPlugin, UiPlugin))
+        .add_plugins((AnimationPresenterPlugin, PlayerPlugin, StepPlugin, UiPlugin))
         .add_systems(Startup, (init_asset_handles, spawn_stuff).chain())
         .add_systems(PostStartup, start_ticking)
         .add_systems(FixedUpdate, process_random_step_controllers.run_if(in_state(TickState::PreTick)))
         .add_systems(OnEnter(TickState::PreTick), count_ticks)
+        .add_systems(Update, log_transitions::<TickState>)
         .run();
 }
 
@@ -77,12 +78,12 @@ const MAZE_SIZE: i32 = 24;
 
 fn spawn_stuff(mut commands: Commands, asset_handles: Res<AssetHandles>) {
     let player_pos = Vec3::new(12.0, 1.0, 12.0);
-    let camera_offset = Vec3::new(0.0, 5.0, -5.0);
+    let camera_offset = Vec3::new(0.0, 8.0, -8.0);
     let camera_pos = player_pos + camera_offset;
 
     commands.spawn((
         Player,
-        StatBlock::new(&[(MOVE_SPEED_STAT_ID, 2u32)]),
+        StatBlock::new(&[(MOVE_SPEED_STAT_ID, 4u32)]),
         InputController { queue_priority: 0 },
         GridPosition::new(
             player_pos.x as i32,
@@ -99,8 +100,8 @@ fn spawn_stuff(mut commands: Commands, asset_handles: Res<AssetHandles>) {
     ));
 
     let npc_info = [
-        (Vec3::new(8.0, 1.0, 12.0), 1u32),
-        (Vec3::new(16.0, 1.0, 12.0), 4u32),
+        (Vec3::new(8.0, 1.0, 12.0), 2u32),
+        (Vec3::new(16.0, 1.0, 12.0), 1u32),
     ];
 
     for (pos, speed) in npc_info {

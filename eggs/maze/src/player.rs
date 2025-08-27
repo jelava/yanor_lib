@@ -35,8 +35,6 @@ fn process_active_input_controller(
 
 
     if keyboard_input.just_pressed(KeyCode::ArrowUp) {
-        info!("the fuck is going on");
-
         commands
             .entity(entity)
             .insert(Active(Step(GridDirection::new(Zero, Zero, Plus))));
