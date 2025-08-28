@@ -118,8 +118,8 @@ fn on_step_phase_finished(
                 // TODO: use index to check for collisions!
 
                 commands
-                .entity(entity)
-                .insert(GridPosition(current_pos + IVec3::from(dir)));
+                    .entity(entity)
+                    .insert(GridPosition(current_pos + IVec3::from(dir)));
             }
             _ => {}
         }

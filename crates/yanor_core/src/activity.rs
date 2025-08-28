@@ -6,7 +6,11 @@ use bevy::{
 };
 // use enum_map::EnumArray;
 
-use crate::{input::ActiveInputController, stats::{StatBlock, StatId}, tick::*};
+use crate::{
+    input::ActiveInputController,
+    stats::{StatBlock, StatId},
+    tick::*,
+};
 
 pub trait ActivityApp {
     fn init_activity<A: Activity>(&mut self) -> &mut App;
@@ -111,7 +115,10 @@ pub struct FinishActivityPhase<P: ActivityPhase>(pub P);
 
 fn advance_activity_phase_queues<A: Activity>(
     mut commands: Commands,
-    mut queue_query: Query<(Entity, &mut ActivityPhaseQueue<A::Phase>, &StatBlock<u32>), With<PendingTick>>,
+    mut queue_query: Query<
+        (Entity, &mut ActivityPhaseQueue<A::Phase>, &StatBlock<u32>),
+        With<PendingTick>,
+    >,
 ) {
     for (entity, mut queue, stats) in &mut queue_query {
         if let Some(phase) = queue.peek() {
@@ -121,7 +128,9 @@ fn advance_activity_phase_queues<A: Activity>(
             let phase_duration = match stats.get_base(&phase.duration()) {
                 Some(&duration) => duration,
                 None => {
-                    warn!("StatBlock has no value for the duration stat of the current ActivityPhase, setting duration to 1 tick");
+                    warn!(
+                        "StatBlock has no value for the duration stat of the current ActivityPhase, setting duration to 1 tick"
+                    );
                     1
                 }
             };
@@ -140,10 +149,10 @@ fn advance_activity_phase_queues<A: Activity>(
                     queue.phase_timer.reset();
                 } else {
                     commands
-                    .entity(entity)
-                    .remove::<ActivityPhaseQueue<A::Phase>>()
-                    .remove::<Active<A>>()
-                    .insert(Inactive);
+                        .entity(entity)
+                        .remove::<ActivityPhaseQueue<A::Phase>>()
+                        .remove::<Active<A>>()
+                        .insert(Inactive);
                 }
             }
         }

@@ -33,7 +33,6 @@ fn process_active_input_controller(
 
     // TODO: check grid index if move is even possible
 
-
     if keyboard_input.just_pressed(KeyCode::ArrowUp) {
         commands
             .entity(entity)
@@ -52,4 +51,3 @@ fn process_active_input_controller(
             .insert(Active(Step(GridDirection::new(Minus, Zero, Zero))));
     }
 }
-

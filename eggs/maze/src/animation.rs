@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, time::Duration};
 
 use bevy::{prelude::*, transform::commands};
-use bevy_tweening::{*, lens::TransformPositionLens};
+use bevy_tweening::{lens::TransformPositionLens, *};
 use yanor_core::{
     grid::GridPosition,
     tick::{PendingPostTick, TickState, Tickable},
@@ -15,9 +15,10 @@ impl Plugin for AnimationPresenterPlugin {
         app.add_plugins(TweeningPlugin)
             .init_resource::<AnimationConfig>()
             .init_resource::<AnimationQueue>()
-            .add_systems(OnEnter(TickState::PostTick), (start_animating, finish_post_tick_if_no_animation))
-            // .add_systems(OnEnter(AnimatingAll), start_all_animations)
-            // .add_systems(OnEnter(AnimatingSequential), start_next_animation)
+            .add_systems(
+                OnEnter(TickState::PostTick),
+                (start_animating, finish_post_tick_if_no_animation),
+            )
             .add_systems(
                 FixedUpdate,
                 skip_animation_on_input.run_if(in_state(TickState::PostTick)),
@@ -51,13 +52,11 @@ enum PendingAnimation {
 }
 
 fn start_animating(
-    mut commands: Commands,
+    commands: Commands,
     anim_config: Res<AnimationConfig>,
     mut anim_queue: ResMut<AnimationQueue>,
     pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
 ) {
-    info!("henlo");
-
     if !anim_queue.is_empty() {
         if anim_config.sequential_animations {
             // next_anim_state.set(AnimationState::AnimatingSequential);
@@ -72,12 +71,17 @@ fn start_animating(
 
 fn finish_post_tick_if_no_animation(
     mut commands: Commands,
-    no_animation_query: Query<Entity, (With<Tickable>, With<PendingPostTick>, Without<PendingAnimation>)>,
+    no_animation_query: Query<
+        Entity,
+        (
+            With<Tickable>,
+            With<PendingPostTick>,
+            Without<PendingAnimation>,
+        ),
+    >,
 ) {
     for entity in no_animation_query {
-        commands
-            .entity(entity)
-            .remove::<PendingPostTick>();
+        commands.entity(entity).remove::<PendingPostTick>();
     }
 }
 
@@ -86,16 +90,21 @@ fn start_all_animations(
     anim_config: Res<AnimationConfig>,
     pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
 ) {
-    info!("1");
+    info!("===animating===");
 
     for (entity, pending_animation, transform, grid_pos) in pending_animation_query {
-        info!("ooga booga");
+        info!("{entity:?}");
 
         commands
             .entity(entity)
             .remove::<PendingAnimation>()
-            .insert(create_step_animator(anim_config.animation_length, (pending_animation, transform, grid_pos)));
+            .insert(create_step_animator(
+                anim_config.animation_length,
+                (pending_animation, transform, grid_pos),
+            ));
     }
+
+    info!("------");
 }
 
 fn start_next_animation(
@@ -104,18 +113,20 @@ fn start_next_animation(
     mut anim_queue: ResMut<AnimationQueue>,
     pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
 ) {
-    info!("2");
-
     if let Some(entity) = anim_queue.pop_front() {
-        info!("next in q");
-
-        if let Ok((_, pending_animation, transform, grid_pos)) = pending_animation_query.get(entity) {
+        if let Ok((_, pending_animation, transform, grid_pos)) = pending_animation_query.get(entity)
+        {
             commands
                 .entity(entity)
                 .remove::<PendingAnimation>()
-                .insert(create_step_animator(anim_config.animation_length, (pending_animation, transform, grid_pos)));
+                .insert(create_step_animator(
+                    anim_config.animation_length,
+                    (pending_animation, transform, grid_pos),
+                ));
         } else {
-            warn!("Entity in animation queue not found in query (possibly missing needed components)");
+            warn!(
+                "Entity in animation queue not found in query (possibly missing needed components)"
+            );
         }
     }
 }
@@ -157,8 +168,6 @@ fn queue_step_animation_observer(
     mut commands: Commands,
     mut anim_queue: ResMut<AnimationQueue>,
 ) {
-    info!("pend");
-
     let entity = trigger.target();
     anim_queue.push_back(entity);
     commands.entity(entity).insert(PendingAnimation::Step);
@@ -168,11 +177,9 @@ fn on_tween_completed(
     trigger: Trigger<TweenCompleted>,
     mut commands: Commands,
     anim_config: Res<AnimationConfig>,
-    mut anim_queue: ResMut<AnimationQueue>,
+    anim_queue: ResMut<AnimationQueue>,
     pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
 ) {
-    info!("tc");
-
     commands
         .entity(trigger.target())
         .remove::<Animator<Transform>>()

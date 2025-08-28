@@ -24,9 +24,7 @@ impl<T: Clone + Copy> StatBlock<T> {
             base_stats.insert(*stat, *value);
         }
 
-        Self {
-            base_stats
-        }
+        Self { base_stats }
     }
 
     // fn get(&self, stat: S) -> T {

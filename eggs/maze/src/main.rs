@@ -6,7 +6,13 @@ mod ui;
 use bevy::{dev_tools::states::log_transitions, prelude::*};
 use bevy_rand::prelude::*;
 use rand::Rng;
-use yanor_core::{activity::*, grid::*, input::*, stats::{StatBlock, StatId}, tick::*};
+use yanor_core::{
+    activity::*,
+    grid::*,
+    input::*,
+    stats::{StatBlock, StatId},
+    tick::*,
+};
 
 use crate::{animation::*, player::*, step::*, ui::*};
 
@@ -22,7 +28,10 @@ fn main() {
         .add_plugins((AnimationPresenterPlugin, PlayerPlugin, StepPlugin, UiPlugin))
         .add_systems(Startup, (init_asset_handles, spawn_stuff).chain())
         .add_systems(PostStartup, start_ticking)
-        .add_systems(FixedUpdate, process_random_step_controllers.run_if(in_state(TickState::PreTick)))
+        .add_systems(
+            FixedUpdate,
+            process_random_step_controllers.run_if(in_state(TickState::PreTick)),
+        )
         .add_systems(OnEnter(TickState::PreTick), count_ticks)
         .add_systems(Update, log_transitions::<TickState>)
         .run();
@@ -83,7 +92,7 @@ fn spawn_stuff(mut commands: Commands, asset_handles: Res<AssetHandles>) {
 
     commands.spawn((
         Player,
-        StatBlock::new(&[(MOVE_SPEED_STAT_ID, 4u32)]),
+        StatBlock::new(&[(MOVE_SPEED_STAT_ID, 5u32)]),
         InputController { queue_priority: 0 },
         GridPosition::new(
             player_pos.x as i32,
@@ -98,26 +107,6 @@ fn spawn_stuff(mut commands: Commands, asset_handles: Res<AssetHandles>) {
             is_hoverable: false,
         },
     ));
-
-    let npc_info = [
-        (Vec3::new(8.0, 1.0, 12.0), 2u32),
-        (Vec3::new(16.0, 1.0, 12.0), 1u32),
-    ];
-
-    for (pos, speed) in npc_info {
-        commands.spawn((
-            RandomStepController,
-            StatBlock::new(&[(MOVE_SPEED_STAT_ID, speed)]),
-            GridPosition::new(pos.x as i32, pos.y as i32, pos.z as i32),
-            Transform::from_translation(pos).looking_to(-camera_offset.normalize(), Dir3::Y),
-            Mesh3d(asset_handles.player_mesh_handle.clone()),
-            MeshMaterial3d(asset_handles.player_material_handle.clone()),
-            Pickable {
-                should_block_lower: false,
-                is_hoverable: false,
-            },
-        ));
-    }
 
     commands.spawn((
         Camera3d::default(),
@@ -174,7 +163,14 @@ struct RandomStepController;
 fn process_random_step_controllers(
     mut commands: Commands,
     mut rng: GlobalEntropy<WyRand>,
-    controller_query: Query<Entity, (With<RandomStepController>, With<Inactive>, With<PendingPreTick>)>,
+    controller_query: Query<
+        Entity,
+        (
+            With<RandomStepController>,
+            With<Inactive>,
+            With<PendingPreTick>,
+        ),
+    >,
 ) {
     use AxisDirection::*;
 
