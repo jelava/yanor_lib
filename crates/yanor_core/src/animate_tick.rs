@@ -1,16 +1,17 @@
 use std::{collections::VecDeque, time::Duration};
 
-use bevy::{prelude::*, transform::commands};
+use bevy::prelude::*;
 use bevy_tweening::{lens::TransformPositionLens, *};
-use yanor_core::{
+
+use crate::{
     grid::GridPosition,
     tick::{PendingPostTick, TickState, Tickable},
 };
 
 // TODO: better name
-pub struct AnimationPresenterPlugin;
+pub struct AnimateTickPlugin;
 
-impl Plugin for AnimationPresenterPlugin {
+impl Plugin for AnimateTickPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(TweeningPlugin)
             .init_resource::<AnimationConfig>()
@@ -59,7 +60,6 @@ fn start_animating(
 ) {
     if !anim_queue.is_empty() {
         if anim_config.sequential_animations {
-            // next_anim_state.set(AnimationState::AnimatingSequential);
             start_next_animation(commands, anim_config, anim_queue, pending_animation_query);
         } else {
             // For non-sequential animation the queue is not necessary so go ahead and clear it
@@ -90,11 +90,7 @@ fn start_all_animations(
     anim_config: Res<AnimationConfig>,
     pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
 ) {
-    info!("===animating===");
-
     for (entity, pending_animation, transform, grid_pos) in pending_animation_query {
-        info!("{entity:?}");
-
         commands
             .entity(entity)
             .remove::<PendingAnimation>()
@@ -103,8 +99,6 @@ fn start_all_animations(
                 (pending_animation, transform, grid_pos),
             ));
     }
-
-    info!("------");
 }
 
 fn start_next_animation(
@@ -163,6 +157,9 @@ fn skip_animation_on_input(
     }
 }
 
+// For sequential animation, preserving information about the order in which changes within the
+// tick happened is useful, so queuing happens immediately via observer rather than waiting
+// until PostTick to check for differences between the Transform and the GridPosition (for example)
 fn queue_step_animation_observer(
     trigger: Trigger<OnReplace, GridPosition>,
     mut commands: Commands,

@@ -2738,7 +2738,6 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_rand",
- "bevy_tweening",
  "rand 0.9.1",
  "yanor_core",
 ]
@@ -5272,6 +5271,7 @@ name = "yanor_core"
 version = "0.4.0"
 dependencies = [
  "bevy",
+ "bevy_tweening",
 ]
 
 [[package]]

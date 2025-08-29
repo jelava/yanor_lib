@@ -1,4 +1,3 @@
-mod animation;
 mod player;
 mod step;
 mod ui;
@@ -8,13 +7,14 @@ use bevy_rand::prelude::*;
 use rand::Rng;
 use yanor_core::{
     activity::*,
+    animate_tick::*,
     grid::*,
     input::*,
     stats::{StatBlock, StatId},
     tick::*,
 };
 
-use crate::{animation::*, player::*, step::*, ui::*};
+use crate::{player::*, step::*, ui::*};
 
 fn main() {
     App::new()
@@ -25,7 +25,7 @@ fn main() {
             SparseGridIndexPlugin::default(),
             TickPlugin,
         ))
-        .add_plugins((AnimationPresenterPlugin, PlayerPlugin, StepPlugin, UiPlugin))
+        .add_plugins((AnimateTickPlugin, PlayerPlugin, StepPlugin, UiPlugin))
         .add_systems(Startup, (init_asset_handles, spawn_stuff).chain())
         .add_systems(PostStartup, start_ticking)
         .add_systems(
@@ -33,7 +33,7 @@ fn main() {
             process_random_step_controllers.run_if(in_state(TickState::PreTick)),
         )
         .add_systems(OnEnter(TickState::PreTick), count_ticks)
-        .add_systems(Update, log_transitions::<TickState>)
+        // .add_systems(Update, log_transitions::<TickState>)
         .run();
 }
 

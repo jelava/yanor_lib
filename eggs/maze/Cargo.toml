@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 bevy = { version = "0.16.1", features = ["bevy_dev_tools", "dynamic_linking"] }
 bevy_rand = { version = "0.11.1", features = ["wyrand"] }
-bevy_tweening = "0.13.0"
 rand = "0.9"
 yanor_core = { path = "../../crates/yanor_core" }
 
