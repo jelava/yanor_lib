@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use bevy::prelude::*;
 
 use crate::index::{ComponentIndexPlugin, SparseComponentIndex};
@@ -9,6 +11,65 @@ pub struct GridPosition(pub IVec3);
 impl GridPosition {
     pub fn new(x: i32, y: i32, z: i32) -> Self {
         Self(IVec3::new(x, y, z))
+    }
+
+    pub fn from_vec_floor(value: Vec3) -> Self {
+        Self(IVec3::new(value.x as i32, value.y as i32, value.z as i32))
+    }
+}
+
+#[derive(Clone, Copy, Default)]
+pub enum AxisDirection {
+    #[default]
+    Zero,
+    Plus,
+    Minus,
+}
+
+#[derive(Clone, Copy)]
+pub struct GridDirection {
+    x: AxisDirection,
+    y: AxisDirection,
+    z: AxisDirection,
+}
+
+impl GridDirection {
+    pub fn new(x: AxisDirection, y: AxisDirection, z: AxisDirection) -> Self {
+        Self { x, y, z }
+    }
+}
+
+impl From<GridDirection> for IVec3 {
+    fn from(value: GridDirection) -> Self {
+        use AxisDirection::*;
+
+        let x = match value.x {
+            Zero => 0,
+            Plus => 1,
+            Minus => -1,
+        };
+
+        let y = match value.y {
+            Zero => 0,
+            Plus => 1,
+            Minus => -1,
+        };
+
+        let z = match value.z {
+            Zero => 0,
+            Plus => 1,
+            Minus => -1,
+        };
+
+        IVec3 { x, y, z }
+    }
+}
+
+impl Add<GridDirection> for GridPosition {
+    type Output = Self;
+
+    fn add(self, rhs: GridDirection) -> Self::Output {
+        Self(self.0 + IVec3::from(rhs))
     }
 }
 

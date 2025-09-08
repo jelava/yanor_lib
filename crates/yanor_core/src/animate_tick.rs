@@ -1,3 +1,6 @@
+// TODO? should this be submodule of tick? or should it stay its own thing until there is a more
+// general visuals/presentation module?
+
 use std::{collections::VecDeque, time::Duration};
 
 use bevy::prelude::*;

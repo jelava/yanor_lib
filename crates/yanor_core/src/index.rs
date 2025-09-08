@@ -7,6 +7,7 @@ pub trait ComponentIndex: Resource {
     type Cmp: Component + Copy + Clone;
 
     fn get(&self, component: &Self::Cmp) -> Option<&EntityHashSet>;
+    fn contains(&self, component: &Self::Cmp) -> bool;
     fn insert(&mut self, component: Self::Cmp, entity: Entity);
     fn remove(&mut self, component: &Self::Cmp, entity: Entity);
 }
@@ -33,6 +34,10 @@ impl<C: Component + Copy + Clone + Eq + Hash> ComponentIndex for SparseComponent
 
     fn get(&self, component: &C) -> Option<&EntityHashSet> {
         self.data.get(component)
+    }
+
+    fn contains(&self, component: &C) -> bool {
+        self.data.contains_key(component)
     }
 
     fn insert(&mut self, component: C, entity: Entity) {
@@ -69,27 +74,8 @@ impl<I: ComponentIndex + Default> Plugin for ComponentIndexPlugin<I> {
         app.init_resource::<I>()
             .add_observer(update_index_on_insert::<I>)
             .add_observer(update_index_on_replace::<I>);
-        //.add_systems(PreStartup, register_component_index_hooks::<I>);
     }
 }
-
-// fn register_component_index_hooks<I: ComponentIndex>(world: &mut World) {
-//     // TODO: this will panic if I::Cmp already has insert/replace hooks
-//     // (maybe just use observers? pros/cons to switching?)
-//     world
-//         .register_component_hooks::<I::Cmp>()
-//         .on_insert(|mut world, HookContext { entity, .. }| {
-//             let component = *world.get(entity).unwrap();
-//             world.resource_mut::<I>().insert(component, entity);
-//         })
-//         .on_replace(|mut world, HookContext { entity, .. }| {
-//             let component = *world.get(entity).unwrap();
-//             world.resource_mut::<I>().remove(&component, entity);
-//
-//             // The insert hook is guaranteed to run after this if the component is being replaced
-//             // and it will handle re-adding the entity to the index for the new component value
-//         });
-// }
 
 fn update_index_on_insert<I: ComponentIndex>(
     trigger: Trigger<OnInsert, I::Cmp>,

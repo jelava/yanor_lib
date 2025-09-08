@@ -11,53 +11,6 @@ impl Plugin for StepPlugin {
     }
 }
 
-#[derive(Clone, Copy, Default)]
-pub enum AxisDirection {
-    #[default]
-    Zero,
-    Plus,
-    Minus,
-}
-
-#[derive(Clone, Copy)]
-pub struct GridDirection {
-    x: AxisDirection,
-    y: AxisDirection,
-    z: AxisDirection,
-}
-
-impl GridDirection {
-    pub fn new(x: AxisDirection, y: AxisDirection, z: AxisDirection) -> Self {
-        Self { x, y, z }
-    }
-}
-
-impl From<GridDirection> for IVec3 {
-    fn from(value: GridDirection) -> Self {
-        use AxisDirection::*;
-
-        let x = match value.x {
-            Zero => 0,
-            Plus => 1,
-            Minus => -1,
-        };
-
-        let y = match value.y {
-            Zero => 0,
-            Plus => 1,
-            Minus => -1,
-        };
-
-        let z = match value.z {
-            Zero => 0,
-            Plus => 1,
-            Minus => -1,
-        };
-
-        IVec3 { x, y, z }
-    }
-}
-
 pub(crate) struct Step(pub GridDirection);
 
 impl Activity for Step {
@@ -72,14 +25,14 @@ impl Activity for Step {
     }
 }
 
-// temp, hacky
-pub const MOVE_SPEED_STAT_ID: StatId = StatId(123);
-
 #[derive(Clone, Debug)]
 pub(crate) enum StepPhase {
     BeginStep,
     EndStep,
 }
+
+// temp, hacky
+pub const MOVE_DURATION_STAT_ID: StatId = StatId(0);
 
 impl ActivityPhase for StepPhase {
     fn name(&self) -> String {
@@ -87,7 +40,7 @@ impl ActivityPhase for StepPhase {
     }
 
     fn duration(&self) -> StatId {
-        MOVE_SPEED_STAT_ID // both phases last 5 ticks
+        MOVE_DURATION_STAT_ID
     }
 }
 

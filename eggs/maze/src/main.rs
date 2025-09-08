@@ -1,3 +1,4 @@
+mod items;
 mod player;
 mod step;
 mod ui;
@@ -5,28 +6,24 @@ mod ui;
 use bevy::{dev_tools::states::log_transitions, prelude::*};
 use bevy_rand::prelude::*;
 use rand::Rng;
-use yanor_core::{
-    activity::*,
-    animate_tick::*,
-    grid::*,
-    input::*,
-    stats::{StatBlock, StatId},
-    tick::*,
-};
+use yanor_core::{activity::*, animate_tick::*, grid::*, input::*, stats::StatBlock, tick::*};
 
-use crate::{player::*, step::*, ui::*};
+use crate::{items::*, player::*, step::*, ui::*};
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, MeshPickingPlugin))
+        .add_plugins((DefaultPlugins, MeshPickingPlugin)) // bevy plugins
         .add_plugins((
+            // yanor lib plugins
+            AnimateTickPlugin,
             EntropyPlugin::<WyRand>::default(),
             InputControllerPlugin,
             SparseGridIndexPlugin::default(),
             TickPlugin,
         ))
-        .add_plugins((AnimateTickPlugin, PlayerPlugin, StepPlugin, UiPlugin))
-        .add_systems(Startup, (init_asset_handles, spawn_stuff).chain())
+        .add_plugins((ItemPlugin, PlayerPlugin, StepPlugin, UiPlugin)) // local plugins
+        .add_systems(PreStartup, init_asset_handles)
+        .add_systems(Startup, spawn_stuff)
         .add_systems(PostStartup, start_ticking)
         .add_systems(
             FixedUpdate,
@@ -38,12 +35,13 @@ fn main() {
 }
 
 #[derive(Resource)]
-struct AssetHandles {
+pub struct AssetHandles {
     block_mesh_handle: Handle<Mesh>,
-    player_mesh_handle: Handle<Mesh>,
+    rect_mesh_handle: Handle<Mesh>,
     block_material_handle: Handle<StandardMaterial>,
     highlight_material_handle: Handle<StandardMaterial>,
     player_material_handle: Handle<StandardMaterial>,
+    potion_material_handle: Handle<StandardMaterial>,
 }
 
 fn init_asset_handles(
@@ -54,7 +52,7 @@ fn init_asset_handles(
 ) {
     commands.insert_resource(AssetHandles {
         block_mesh_handle: meshes.add(Cuboid::default()),
-        player_mesh_handle: meshes.add(Rectangle::default()),
+        rect_mesh_handle: meshes.add(Rectangle::default()),
         block_material_handle: materials.add(StandardMaterial {
             base_color_texture: Some(asset_server.load("block.png")),
             unlit: true,
@@ -69,6 +67,13 @@ fn init_asset_handles(
         }),
         player_material_handle: materials.add(StandardMaterial {
             base_color_texture: Some(asset_server.load("gobbo.png")),
+            unlit: true,
+            alpha_mode: AlphaMode::Mask(1.0),
+            cull_mode: None,
+            ..default()
+        }),
+        potion_material_handle: materials.add(StandardMaterial {
+            base_color_texture: Some(asset_server.load("potion.png")),
             unlit: true,
             alpha_mode: AlphaMode::Mask(1.0),
             cull_mode: None,
@@ -92,20 +97,35 @@ fn spawn_stuff(mut commands: Commands, asset_handles: Res<AssetHandles>) {
 
     commands.spawn((
         Player,
-        StatBlock::new(&[(MOVE_SPEED_STAT_ID, 5u32)]),
         InputController { queue_priority: 0 },
         GridPosition::new(
             player_pos.x as i32,
             player_pos.y as i32,
             player_pos.z as i32,
         ),
+        StatBlock::new(&[
+            (MOVE_DURATION_STAT_ID, 5u32),
+            (GRAB_ITEM_DURATION_STAT_ID, 5u32),
+            (STORE_ITEM_DURATION_STAT_ID, 5u32),
+            (TAKE_OUT_ITEM_DURATION_STAT_ID, 5u32),
+            (PLACE_ITEM_DURATION_STAT_ID, 5u32),
+        ]),
+        Inventory::default(),
         Transform::from_translation(player_pos).looking_to(-camera_offset.normalize(), Dir3::Y),
-        Mesh3d(asset_handles.player_mesh_handle.clone()),
+        Mesh3d(asset_handles.rect_mesh_handle.clone()),
         MeshMaterial3d(asset_handles.player_material_handle.clone()),
         Pickable {
             should_block_lower: false,
             is_hoverable: false,
         },
+    ));
+
+    commands.spawn((
+        Item,
+        GridPosition::new(14, 1, 14),
+        Transform::from_translation(Vec3::new(14.0, 1.0, 14.0)),
+        Mesh3d(asset_handles.rect_mesh_handle.clone()),
+        MeshMaterial3d(asset_handles.potion_material_handle.clone()),
     ));
 
     commands.spawn((

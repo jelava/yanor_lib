@@ -94,7 +94,7 @@ fn init_phase_queue<A: Activity>(
             .try_remove::<Inactive>()
             .try_remove::<ActiveInputController>();
     } else {
-        warn!("No CurrentActivity found in on_insert hook for CurrentActivity");
+        warn!("No Active component found in on_insert hook for Active");
     }
 }
 
