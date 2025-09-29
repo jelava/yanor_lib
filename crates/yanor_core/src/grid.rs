@@ -18,6 +18,13 @@ impl GridPosition {
     }
 }
 
+impl From<GridPosition> for Vec3 {
+    fn from(value: GridPosition) -> Self {
+        let GridPosition(ivec) = value;
+        Vec3::new(ivec.x as f32, ivec.y as f32, ivec.z as f32)
+    }
+}
+
 #[derive(Clone, Copy, Default)]
 pub enum AxisDirection {
     #[default]

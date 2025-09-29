@@ -26,7 +26,7 @@ impl Plugin for ItemPlugin {
 
 /// This component indicates that an entity can be stored by entities that have the Inventory
 /// component.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Item;
 
 /// This component indicates that an entity can store entities with the Item component.

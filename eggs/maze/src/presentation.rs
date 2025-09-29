@@ -1,0 +1,185 @@
+pub mod camera;
+
+use bevy::prelude::*;
+use yanor_core::grid::GridPosition;
+
+pub struct PresentationPlugin;
+
+use crate::{Block, Player, Potion};
+use camera::*;
+
+impl Plugin for PresentationPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(PreStartup, init_asset_handles)
+            .add_systems(Startup, spawn_camera)
+            .add_systems(Update, (camera_track_player, update_billboard_transforms))
+            .add_observer(on_add_block)
+            .add_observer(on_add_player)
+            .add_observer(on_add_potion);
+    }
+}
+
+#[derive(Resource)]
+pub struct AssetHandles {
+    block_mesh_handle: Handle<Mesh>,
+    rect_mesh_handle: Handle<Mesh>,
+    block_material_handle: Handle<StandardMaterial>,
+    highlight_material_handle: Handle<StandardMaterial>,
+    player_material_handle: Handle<StandardMaterial>,
+    potion_material_handle: Handle<StandardMaterial>,
+}
+
+fn init_asset_handles(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    commands.insert_resource(AssetHandles {
+        block_mesh_handle: meshes.add(Cuboid::default()),
+        rect_mesh_handle: meshes.add(Rectangle::default()),
+        block_material_handle: materials.add(StandardMaterial {
+            base_color_texture: Some(asset_server.load("block.png")),
+            unlit: true,
+            ..default()
+        }),
+        highlight_material_handle: materials.add(StandardMaterial {
+            base_color_texture: Some(asset_server.load("highlight.png")),
+            unlit: true,
+            alpha_mode: AlphaMode::Mask(1.0),
+            cull_mode: None,
+            ..default()
+        }),
+        player_material_handle: materials.add(StandardMaterial {
+            base_color_texture: Some(asset_server.load("gobbo.png")),
+            unlit: true,
+            alpha_mode: AlphaMode::Mask(1.0),
+            cull_mode: None,
+            ..default()
+        }),
+        potion_material_handle: materials.add(StandardMaterial {
+            base_color_texture: Some(asset_server.load("potion.png")),
+            unlit: true,
+            alpha_mode: AlphaMode::Mask(1.0),
+            cull_mode: None,
+            ..default()
+        }),
+    });
+}
+
+// #[derive(Component)]
+// struct CellHighlight;
+
+// fn spawn_camera_and_presentation_entities(
+//     mut commands: Commands,
+//     // asset_handles: Res<AssetHandles>,
+// ) {
+//     // TODO: don't hardcode this stuff, update camera transform dynamically
+//     let player_pos = Vec3::new(12.0, 1.0, 12.0);
+//     let camera_offset = Vec3::new(0.0, 8.0, -8.0);
+//     let camera_pos = player_pos + camera_offset;
+//
+//     commands.spawn((
+//         Camera3d::default(),
+//         Transform::from_translation(camera_pos).looking_at(player_pos, Dir3::Y),
+//     ));
+//
+//     // commands.spawn((
+//     //     CellHighlight,
+//     //     Transform::from_xyz(0.0, 1.0, 0.0),
+//     //     Mesh3d(asset_handles.block_mesh_handle.clone()),
+//     //     MeshMaterial3d(asset_handles.highlight_material_handle.clone()),
+//     //     Pickable {
+//     //         should_block_lower: false,
+//     //         is_hoverable: false,
+//     //     },
+//     // ));
+// }
+
+// fn present_on_add<C: Component>(
+//     trigger: Trigger<OnAdd, C>,
+//     mut commands
+// )
+
+fn on_add_block(
+    trigger: Trigger<OnAdd, Block>,
+    mut commands: Commands,
+    asset_handles: Res<AssetHandles>,
+    pos_query: Query<&GridPosition, With<Block>>,
+) {
+    let target = trigger.target();
+
+    if let Ok(&grid_pos) = pos_query.get(target) {
+        commands.entity(target).insert((
+            Transform::from_translation(grid_pos.into()),
+            Mesh3d(asset_handles.block_mesh_handle.clone()),
+            MeshMaterial3d(asset_handles.block_material_handle.clone()),
+        ));
+    } else {
+        warn!("Block component added to entity without GridPosition, will not be presented");
+    }
+}
+
+fn on_add_player(
+    trigger: Trigger<OnAdd, Player>,
+    mut commands: Commands,
+    asset_handles: Res<AssetHandles>,
+    pos_query: Query<&GridPosition, With<Player>>,
+) {
+    let target = trigger.target();
+
+    if let Ok(&grid_pos) = pos_query.get(target) {
+        commands.entity(target).insert((
+            Billboard,
+            Transform::from_translation(grid_pos.into()),
+            Mesh3d(asset_handles.rect_mesh_handle.clone()),
+            MeshMaterial3d(asset_handles.player_material_handle.clone()),
+        ));
+    } else {
+        warn!("Player component added to entity without GridPosition, will not be presented");
+    }
+}
+
+fn on_add_potion(
+    trigger: Trigger<OnAdd, Potion>,
+    mut commands: Commands,
+    asset_handles: Res<AssetHandles>,
+    pos_query: Query<&GridPosition, With<Potion>>,
+) {
+    let target = trigger.target();
+
+    if let Ok(&grid_pos) = pos_query.get(target) {
+        commands.entity(target).insert((
+            Billboard,
+            Transform::from_translation(grid_pos.into()),
+            Mesh3d(asset_handles.rect_mesh_handle.clone()),
+            MeshMaterial3d(asset_handles.potion_material_handle.clone()),
+        ));
+    } else {
+        warn!("else");
+
+        // If the item has no GridPosition it is probably spawning into an inventory, so set up the
+        // presentation components and a temporary transform but make it not visible
+        commands.entity(target).insert((
+            Visibility::Hidden,
+            Billboard,
+            Transform::from_translation(Vec3::ZERO),
+            Mesh3d(asset_handles.rect_mesh_handle.clone()),
+            MeshMaterial3d(asset_handles.potion_material_handle.clone()),
+        ));
+    }
+}
+
+// TODO: on remove/despawn handlers
+
+// fn on_block_hover(
+//     trigger: Trigger<Pointer<Over>>,
+//     mut cell_highlight_transform: Single<&mut Transform, With<CellHighlight>>,
+//     transform_query: Query<&Transform, (With<Block>, Without<CellHighlight>)>,
+// ) {
+//     if let Ok(&board_transform) = transform_query.get(trigger.target()) {
+//         cell_highlight_transform.translation = board_transform.translation + Vec3::Y;
+//     } else {
+//         warn!("Hovered Block has no Transform");
+//     }
+// }
