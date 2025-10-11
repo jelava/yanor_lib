@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{math::VectorSpace, prelude::*};
 
 use crate::player::Player;
 
@@ -18,12 +18,13 @@ pub struct PlayerTracking {
 
 pub fn spawn_camera(mut commands: Commands) {
     // TODO: don't hardcode this, load from config or something
-    let offset = Vec3::new(0.0, 8.0, -8.0);
+    // let pos = Vec3::new(12.0, 1.0, 12.0);
+    let offset = Vec3::new(0.0, 6.0, -8.0);
 
     commands.spawn((
         PresentationCamera,
         PlayerTracking { offset },
-        Transform::from_translation(Vec3::ZERO).looking_at(-offset, Vec3::Y),
+        Transform::from_translation(offset).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 

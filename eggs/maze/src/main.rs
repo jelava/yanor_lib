@@ -4,16 +4,33 @@ mod presentation;
 mod step;
 mod ui;
 
-use bevy::{dev_tools::states::log_transitions, prelude::*};
+use std::{default, time::Duration};
+
+use bevy::{
+    dev_tools::{DevToolsPlugin, fps_overlay::FpsOverlayPlugin, states::log_transitions},
+    prelude::*,
+};
 use bevy_rand::prelude::*;
 use rand::Rng;
 use yanor_core::{activity::*, animate_tick::*, grid::*, input::*, stats::StatBlock, tick::*};
 
 use crate::{items::*, player::*, presentation::*, step::*, ui::*};
 
+#[derive(Resource, Default)]
+struct TickPhaseCounter {
+    total: u32,
+    pre_tick: u32,
+    tick: u32,
+    post_tick: u32,
+}
+
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, MeshPickingPlugin)) // bevy plugins
+        .add_plugins((
+            DefaultPlugins,
+            FpsOverlayPlugin::default(),
+            MeshPickingPlugin,
+        )) // bevy plugins
         .add_plugins((
             // yanor lib plugins
             AnimateTickPlugin,
@@ -29,15 +46,40 @@ fn main() {
             StepPlugin,
             UiPlugin,
         )) // local plugins
+        // .insert_resource(Time::<Fixed>::from_hz(0.1 * 60.0))
+        .init_resource::<TickPhaseCounter>()
         .add_systems(Startup, spawn_stuff)
         .add_systems(PostStartup, start_ticking)
         .add_systems(
             FixedUpdate,
-            process_random_step_controllers.run_if(in_state(TickState::PreTick)),
+            (
+                process_random_step_controllers.run_if(in_state(TickState::PreTick)),
+                update_tick_phase_counter,
+            ),
         )
         .add_systems(OnEnter(TickState::PreTick), count_ticks)
         // .add_systems(Update, log_transitions::<TickState>)
         .run();
+
+    fn update_tick_phase_counter(
+        tick_state: Res<State<TickState>>,
+        mut counter: ResMut<TickPhaseCounter>,
+    ) {
+        counter.total += 1;
+
+        match tick_state.get() {
+            TickState::PreTick => {
+                counter.pre_tick += 1;
+            }
+            TickState::Tick => {
+                counter.tick += 1;
+            }
+            TickState::PostTick => {
+                counter.post_tick += 1;
+            }
+            _ => {}
+        };
+    }
 }
 
 #[derive(Component)]
@@ -56,14 +98,15 @@ fn spawn_stuff(mut commands: Commands) {
 
     commands.spawn((
         Player,
-        InputController { queue_priority: 0 },
+        // InputController { queue_priority: 0 },
+        RandomStepController,
         GridPosition::new(
             player_pos.x as i32,
             player_pos.y as i32,
             player_pos.z as i32,
         ),
         StatBlock::new(&[
-            (MOVE_DURATION_STAT_ID, 5u32),
+            (MOVE_DURATION_STAT_ID, 1u32),
             (GRAB_ITEM_DURATION_STAT_ID, 5u32),
             (STORE_ITEM_DURATION_STAT_ID, 5u32),
             (TAKE_OUT_ITEM_DURATION_STAT_ID, 5u32),
@@ -101,9 +144,26 @@ fn spawn_stuff(mut commands: Commands) {
     }
 }
 
-fn count_ticks(mut stopwatch: Local<TickStopwatch>) {
+fn count_ticks(mut stopwatch: Local<TickStopwatch>, mut counter: ResMut<TickPhaseCounter>) {
     info!("=== tick {} ===", stopwatch.elapsed_ticks());
     stopwatch.tick(1);
+
+    info!(
+        // "pre-tick: {} ({}%)\ntick: {} ({}%)\npost-tick: {} ({}%)\ntotal: {} (fupds/tick)",
+        // counter.pre_tick,
+        // (counter.pre_tick as f32) / (counter.total as f32) * 100.0,
+        // counter.tick,
+        // (counter.tick as f32) / (counter.total as f32) * 100.0,
+        // counter.post_tick,
+        // (counter.post_tick as f32) / (counter.total as f32) * 100.0,
+        "{} (fupds/tick)",
+        counter.total,
+    );
+
+    counter.total = 0;
+    counter.pre_tick = 0;
+    counter.tick = 0;
+    counter.post_tick = 0;
 }
 
 #[derive(Component)]

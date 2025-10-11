@@ -42,7 +42,7 @@ impl Default for AnimationConfig {
     fn default() -> Self {
         Self {
             sequential_animations: false,
-            animation_length: Duration::from_secs_f32(0.5),
+            animation_length: Duration::from_secs_f32(0.1),
         }
     }
 }
