@@ -52,20 +52,20 @@ impl ActivityPhase for GetItemPhase {
 }
 
 pub(super) fn on_get_item_phase_finished(
-    trigger: Trigger<FinishActivityPhase<GetItemPhase>>,
+    trigger: On<FinishActivityPhase<GetItemPhase>>,
     mut commands: Commands,
     activity_query: Query<&Active<GetItem>, With<Inventory>>,
 ) {
     use GetItemPhase::*;
 
-    let target = trigger.target();
+    let target = trigger.event_target();
 
     if let Ok(&Active(GetItem(item_entity))) = activity_query.get(target) {
-        match trigger.event() {
-            FinishActivityPhase(PickUpItem) => {
+        match trigger.event().phase {
+            PickUpItem => {
                 warn!("TODO: equip/hold the item in the player's hand")
             }
-            FinishActivityPhase(StoreItem) => {
+            StoreItem => {
                 commands.entity(item_entity).insert(StoredIn(target));
             }
         }
@@ -113,20 +113,20 @@ impl ActivityPhase for DropItemPhase {
 }
 
 pub(super) fn on_drop_item_phase_finished(
-    trigger: Trigger<FinishActivityPhase<DropItemPhase>>,
+    trigger: On<FinishActivityPhase<DropItemPhase>>,
     mut commands: Commands,
     activity_query: Query<&Active<DropItem>, With<Inventory>>,
 ) {
     use DropItemPhase::*;
 
-    let target = trigger.target();
+    let target = trigger.event_target();
 
     if let Ok(&Active(DropItem(item_entity))) = activity_query.get(target) {
-        match trigger.event() {
-            FinishActivityPhase(TakeOutItem) => {
+        match trigger.event().phase {
+            TakeOutItem => {
                 warn!("TODO: equip/hold the item in the player's hand")
             }
-            FinishActivityPhase(PlaceItem) => {
+            PlaceItem => {
                 commands.entity(item_entity).remove::<StoredIn>();
             }
         }

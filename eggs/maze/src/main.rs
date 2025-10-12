@@ -4,10 +4,8 @@ mod presentation;
 mod step;
 mod ui;
 
-use std::{default, time::Duration};
-
 use bevy::{
-    dev_tools::{DevToolsPlugin, fps_overlay::FpsOverlayPlugin, states::log_transitions},
+    dev_tools::{fps_overlay::FpsOverlayPlugin, states::log_transitions},
     prelude::*,
 };
 use bevy_rand::prelude::*;
@@ -98,8 +96,8 @@ fn spawn_stuff(mut commands: Commands) {
 
     commands.spawn((
         Player,
-        // InputController { queue_priority: 0 },
-        RandomStepController,
+        InputController { queue_priority: 0 },
+        // RandomStepController,
         GridPosition::new(
             player_pos.x as i32,
             player_pos.y as i32,
@@ -113,32 +111,13 @@ fn spawn_stuff(mut commands: Commands) {
             (PLACE_ITEM_DURATION_STAT_ID, 5u32),
         ]),
         Inventory::default(),
-        // Transform::from_translation(player_pos).looking_to(-camera_offset.normalize(), Dir3::Y),
-        // Mesh3d(asset_handles.rect_mesh_handle.clone()),
-        // MeshMaterial3d(asset_handles.player_material_handle.clone()),
-        // Pickable {
-        //     should_block_lower: false,
-        //     is_hoverable: false,
-        // },
     ));
 
-    commands.spawn((
-        Potion,
-        GridPosition::new(14, 1, 14),
-        // Transform::from_translation(Vec3::new(14.0, 1.0, 14.0)),
-        // Mesh3d(asset_handles.rect_mesh_handle.clone()),
-        // MeshMaterial3d(asset_handles.potion_material_handle.clone()),
-    ));
+    commands.spawn((Potion, GridPosition::new(14, 1, 14)));
 
     for x in 0..MAZE_SIZE {
         for z in 0..MAZE_SIZE {
-            commands.spawn((
-                Block,
-                GridPosition(IVec3::new(x, 0, z)),
-                // Transform::from_xyz(x as f32, 0.0, z as f32),
-                // Mesh3d(asset_handles.block_mesh_handle.clone()),
-                // MeshMaterial3d(asset_handles.block_material_handle.clone()),
-            ));
+            commands.spawn((Block, GridPosition(IVec3::new(x, 0, z))));
             // .observe(on_block_hover);
         }
     }
@@ -172,7 +151,7 @@ struct RandomStepController;
 
 fn process_random_step_controllers(
     mut commands: Commands,
-    mut rng: GlobalEntropy<WyRand>,
+    mut rng: Single<&mut WyRand, With<GlobalRng>>,
     controller_query: Query<
         Entity,
         (

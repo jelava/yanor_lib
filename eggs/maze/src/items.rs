@@ -1,6 +1,6 @@
 pub mod activities;
 
-use bevy::{ecs::world::OnDespawn, prelude::*};
+use bevy::prelude::*;
 use yanor_core::{activity::*, grid::GridPosition};
 
 use activities::*;
@@ -47,12 +47,12 @@ pub struct StoredIn(pub Entity);
 pub struct Stores(Vec<Entity>);
 
 fn on_item_add_stored_in(
-    trigger: Trigger<OnAdd, StoredIn>,
+    trigger: On<Add, StoredIn>,
     mut commands: Commands,
     stored_in_query: Query<&StoredIn>,
     mut inventory_query: Query<&mut Inventory>,
 ) {
-    let target = trigger.target();
+    let target = trigger.event_target();
 
     if let Ok(&StoredIn(inventory_entity)) = stored_in_query.get(target) {
         if let Ok(mut inventory) = inventory_query.get_mut(inventory_entity) {
@@ -85,12 +85,12 @@ fn on_item_add_stored_in(
 }
 
 fn on_item_remove_stored_in(
-    trigger: Trigger<OnRemove, StoredIn>,
+    trigger: On<Remove, StoredIn>,
     mut commands: Commands,
     stored_in_query: Query<&StoredIn>,
     mut inventory_query: Query<(&mut Inventory, &GridPosition)>,
 ) {
-    let target = trigger.target();
+    let target = trigger.event_target();
 
     if let Ok(&StoredIn(inventory_entity)) = stored_in_query.get(target) {
         if let Ok((mut inventory, grid_pos)) = inventory_query.get_mut(inventory_entity) {
@@ -114,6 +114,6 @@ fn on_item_remove_stored_in(
     }
 }
 
-fn on_inventory_despawn(trigger: Trigger<OnDespawn, Inventory>) {
+fn on_inventory_despawn(trigger: On<Despawn, Inventory>) {
     todo!("Dump out all the items in the inventory at the location where it despawned");
 }

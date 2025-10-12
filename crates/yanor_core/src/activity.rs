@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use bevy::{
-    ecs::{component::HookContext, world::DeferredWorld},
+    ecs::{lifecycle::HookContext, world::DeferredWorld},
     prelude::*,
 };
 // use enum_map::EnumArray;
@@ -107,11 +107,19 @@ fn finish_pre_tick_if_active<A: Activity>(
     }
 }
 
-#[derive(Event)]
-pub struct BeginActivityPhase<P: ActivityPhase>(pub P);
+#[derive(EntityEvent)]
+pub struct BeginActivityPhase<P: ActivityPhase> {
+    #[event_target]
+    entity: Entity,
+    pub phase: P,
+}
 
-#[derive(Event)]
-pub struct FinishActivityPhase<P: ActivityPhase>(pub P);
+#[derive(EntityEvent)]
+pub struct FinishActivityPhase<P: ActivityPhase> {
+    #[event_target]
+    entity: Entity,
+    pub phase: P,
+}
 
 fn advance_activity_phase_queues<A: Activity>(
     mut commands: Commands,
@@ -141,11 +149,18 @@ fn advance_activity_phase_queues<A: Activity>(
                 let (maybe_old_phase, maybe_new_phase) = queue.pop();
 
                 if let Some(old_phase) = maybe_old_phase {
-                    commands.trigger_targets(FinishActivityPhase(old_phase), entity);
+                    commands.trigger(FinishActivityPhase {
+                        entity,
+                        phase: old_phase,
+                    });
                 }
 
                 if let Some(new_phase) = maybe_new_phase {
-                    commands.trigger_targets(BeginActivityPhase(new_phase.clone()), entity);
+                    commands.trigger(BeginActivityPhase {
+                        entity,
+                        phase: new_phase.clone(),
+                    });
+
                     queue.phase_timer.reset();
                 } else {
                     commands

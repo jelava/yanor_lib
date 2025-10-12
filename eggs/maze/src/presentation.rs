@@ -67,47 +67,13 @@ fn init_asset_handles(
     });
 }
 
-// #[derive(Component)]
-// struct CellHighlight;
-
-// fn spawn_camera_and_presentation_entities(
-//     mut commands: Commands,
-//     // asset_handles: Res<AssetHandles>,
-// ) {
-//     // TODO: don't hardcode this stuff, update camera transform dynamically
-//     let player_pos = Vec3::new(12.0, 1.0, 12.0);
-//     let camera_offset = Vec3::new(0.0, 8.0, -8.0);
-//     let camera_pos = player_pos + camera_offset;
-//
-//     commands.spawn((
-//         Camera3d::default(),
-//         Transform::from_translation(camera_pos).looking_at(player_pos, Dir3::Y),
-//     ));
-//
-//     // commands.spawn((
-//     //     CellHighlight,
-//     //     Transform::from_xyz(0.0, 1.0, 0.0),
-//     //     Mesh3d(asset_handles.block_mesh_handle.clone()),
-//     //     MeshMaterial3d(asset_handles.highlight_material_handle.clone()),
-//     //     Pickable {
-//     //         should_block_lower: false,
-//     //         is_hoverable: false,
-//     //     },
-//     // ));
-// }
-
-// fn present_on_add<C: Component>(
-//     trigger: Trigger<OnAdd, C>,
-//     mut commands
-// )
-
 fn on_add_block(
-    trigger: Trigger<OnAdd, Block>,
+    trigger: On<Add, Block>,
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
     pos_query: Query<&GridPosition, With<Block>>,
 ) {
-    let target = trigger.target();
+    let target = trigger.event_target();
 
     if let Ok(&grid_pos) = pos_query.get(target) {
         commands.entity(target).insert((
@@ -121,12 +87,12 @@ fn on_add_block(
 }
 
 fn on_add_player(
-    trigger: Trigger<OnAdd, Player>,
+    trigger: On<Add, Player>,
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
     pos_query: Query<&GridPosition, With<Player>>,
 ) {
-    let target = trigger.target();
+    let target = trigger.event_target();
 
     if let Ok(&grid_pos) = pos_query.get(target) {
         commands.entity(target).insert((
@@ -141,12 +107,12 @@ fn on_add_player(
 }
 
 fn on_add_potion(
-    trigger: Trigger<OnAdd, Potion>,
+    trigger: On<Add, Potion>,
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
     pos_query: Query<&GridPosition, With<Potion>>,
 ) {
-    let target = trigger.target();
+    let target = trigger.event_target();
 
     if let Ok(&grid_pos) = pos_query.get(target) {
         commands.entity(target).insert((
@@ -156,8 +122,6 @@ fn on_add_potion(
             MeshMaterial3d(asset_handles.potion_material_handle.clone()),
         ));
     } else {
-        warn!("else");
-
         // If the item has no GridPosition it is probably spawning into an inventory, so set up the
         // presentation components and a temporary transform but make it not visible
         commands.entity(target).insert((

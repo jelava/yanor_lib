@@ -48,7 +48,7 @@ fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             BackgroundColor(BACKGROUND_COLOR),
-            BorderColor(OUTER_BORDER_COLOR),
+            BorderColor::all(OUTER_BORDER_COLOR),
         ))
         .with_children(|left_sidebar| {
             left_sidebar
@@ -65,7 +65,7 @@ fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     BackgroundColor(BACKGROUND_COLOR),
-                    BorderColor(NESTED_BORDER_COLOR),
+                    BorderColor::all(NESTED_BORDER_COLOR),
                 ))
                 .with_children(|player_info_box| {
                     player_info_box
@@ -75,7 +75,7 @@ fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 border: UiRect::bottom(Val::Px(1.0)),
                                 ..default()
                             },
-                            BorderColor(NESTED_BORDER_COLOR),
+                            BorderColor::all(NESTED_BORDER_COLOR),
                         ))
                         .with_children(|player_info_header| {
                             player_info_header.spawn((PlayerIcon, ImageNode::new(player_icon)));
@@ -117,7 +117,7 @@ fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     BackgroundColor(BACKGROUND_COLOR),
-                    BorderColor(NESTED_BORDER_COLOR),
+                    BorderColor::all(NESTED_BORDER_COLOR),
                 ))
                 .with_children(|log_box| {
                     log_box.spawn((

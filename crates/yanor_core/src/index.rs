@@ -78,11 +78,11 @@ impl<I: ComponentIndex + Default> Plugin for ComponentIndexPlugin<I> {
 }
 
 fn update_index_on_insert<I: ComponentIndex>(
-    trigger: Trigger<OnInsert, I::Cmp>,
+    trigger: On<Insert, I::Cmp>,
     mut index: ResMut<I>,
     component_query: Query<&I::Cmp>,
 ) {
-    let entity = trigger.target();
+    let entity = trigger.event_target();
 
     if let Ok(&component) = component_query.get(entity) {
         index.insert(component, entity);
@@ -92,11 +92,11 @@ fn update_index_on_insert<I: ComponentIndex>(
 }
 
 fn update_index_on_replace<I: ComponentIndex>(
-    trigger: Trigger<OnReplace, I::Cmp>,
+    trigger: On<Replace, I::Cmp>,
     mut index: ResMut<I>,
     component_query: Query<&I::Cmp>,
 ) {
-    let entity = trigger.target();
+    let entity = trigger.event_target();
 
     if let Ok(component) = component_query.get(entity) {
         index.remove(component, entity);

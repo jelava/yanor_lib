@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.16.1", features = ["bevy_dev_tools", "dynamic_linking"] }
+bevy = { version = "0.17.2", features = ["bevy_dev_tools", "dynamic_linking"] }
 rand = "0.9"
-bevy_rand = { version = "0.11.1", features = ["wyrand"] }
+bevy_rand = { version = "0.12.0", features = ["wyrand"] }
 yanor_core = { path = "../../crates/yanor_core" }
 
 [target.x86_64-unknown-linux-gnu]

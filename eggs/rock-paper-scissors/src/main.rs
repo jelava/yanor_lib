@@ -139,7 +139,7 @@ fn process_idle_random_controllers(
 }
 
 fn announce_active_input_controller(
-    _trigger: Trigger<OnAdd, ActiveInputController>,
+    _trigger: On<Add, ActiveInputController>,
     player_id: Single<&PlayerId, With<ActiveInputController>>,
 ) {
     info!(
@@ -294,7 +294,7 @@ fn do_rps_activities(
 }
 
 fn remove_scored_marker_when_rps_activity_done(
-    trigger: Trigger<OnRemove, Active<RpsActivity>>,
+    trigger: On<Remove, Active<RpsActivity>>,
     mut commands: Commands,
 ) {
     commands

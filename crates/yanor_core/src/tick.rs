@@ -118,13 +118,13 @@ fn tick_state_setup<C: Component + Default>(
 }
 
 fn on_pending_component_remove<C: Component>(
-    trigger: Trigger<OnRemove, C>,
+    trigger: On<Remove, C>,
     mut commands: Commands,
     tick_state: Res<State<TickState>>,
     mut next_tick_phase: ResMut<NextState<TickState>>,
     last_pending_query: Single<Entity, With<C>>,
 ) {
-    if *last_pending_query == trigger.target() {
+    if *last_pending_query == trigger.event_target() {
         next_tick_phase.set(tick_state.get().next());
         commands.entity(trigger.observer()).despawn();
     } else {

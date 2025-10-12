@@ -120,7 +120,7 @@ fn spawn_game(mut commands: Commands, asset_handles: Res<AssetHandles>) {
 }
 
 fn on_board_hover(
-    trigger: Trigger<Pointer<Over>>,
+    trigger: On<Pointer<Over>>,
     mut cell_highlight_transform: Single<&mut Transform, With<CellHighlight>>,
     transform_query: Query<&Transform, (With<BoardBlock>, Without<CellHighlight>)>,
 ) {
@@ -132,7 +132,7 @@ fn on_board_hover(
 }
 
 fn on_board_click(
-    _trigger: Trigger<Pointer<Click>>,
+    _trigger: On<Pointer<Click>>,
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
     current_turn: Res<State<TurnState>>,

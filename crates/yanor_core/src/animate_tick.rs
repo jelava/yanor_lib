@@ -42,7 +42,7 @@ impl Default for AnimationConfig {
     fn default() -> Self {
         Self {
             sequential_animations: false,
-            animation_length: Duration::from_secs_f32(0.1),
+            animation_length: Duration::from_secs_f32(0.5),
         }
     }
 }
@@ -131,7 +131,7 @@ fn start_next_animation(
 fn create_step_animator(
     animation_length: Duration,
     anim_components: (&PendingAnimation, &Transform, &GridPosition),
-) -> Animator<Transform> {
+) -> TweenAnim {
     let (pending_animation, transform, GridPosition(grid_pos)) = anim_components;
     let start = transform.translation;
     let end = Vec3::new(grid_pos.x as f32, grid_pos.y as f32, grid_pos.z as f32);
@@ -142,21 +142,26 @@ fn create_step_animator(
             animation_length,
             TransformPositionLens { start, end },
         )
-        .with_completed_event(0),
+        .with_cycle_completed_event(true),
     };
 
-    Animator::new(tween)
+    TweenAnim::new(tween)
 }
 
 fn skip_animation_on_input(
+    mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut animator_query: Query<&mut Animator<Transform>>,
+    mut animation_query: Query<&mut TweenAnim>,
 ) {
     if keyboard_input.get_just_pressed().next().is_some() {
-        for mut animator in &mut animator_query {
-            // TODO? change to 1.0? there might be reliability issues that way though, i forgor
-            animator.tweenable_mut().set_progress(0.99);
-        }
+        // for mut animation in &mut animation_query {
+        //     // let mut tweenable = animation.tweenable();
+        //     // tweenable.set_elapsed(tweenable.cycle_duration());
+        //     // animation.set_tweenable(tweenable.into());
+        //     // commands.trigger(CycleCompletedEvent);
+        // }
+
+        todo!("update this");
     }
 }
 
@@ -164,25 +169,25 @@ fn skip_animation_on_input(
 // tick happened is useful, so queuing happens immediately via observer rather than waiting
 // until PostTick to check for differences between the Transform and the GridPosition (for example)
 fn queue_step_animation_observer(
-    trigger: Trigger<OnReplace, GridPosition>,
+    trigger: On<Replace, GridPosition>,
     mut commands: Commands,
     mut anim_queue: ResMut<AnimationQueue>,
 ) {
-    let entity = trigger.target();
+    let entity = trigger.event_target();
     anim_queue.push_back(entity);
     commands.entity(entity).insert(PendingAnimation::Step);
 }
 
 fn on_tween_completed(
-    trigger: Trigger<TweenCompleted>,
+    trigger: On<CycleCompletedEvent>,
     mut commands: Commands,
     anim_config: Res<AnimationConfig>,
     anim_queue: ResMut<AnimationQueue>,
     pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
 ) {
     commands
-        .entity(trigger.target())
-        .remove::<Animator<Transform>>()
+        .entity(trigger.event_target())
+        .remove::<TweenAnim>()
         .remove::<PendingPostTick>();
 
     if anim_config.sequential_animations {

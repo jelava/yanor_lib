@@ -58,16 +58,16 @@ fn step_tick(
 }
 
 fn on_step_phase_finished(
-    trigger: Trigger<FinishActivityPhase<StepPhase>>,
+    trigger: On<FinishActivityPhase<StepPhase>>,
     mut commands: Commands,
     // grid_index: Res<SparseGridIndex>,
     step_query: Query<(&Active<Step>, &GridPosition)>,
 ) {
-    let entity = trigger.target();
+    let entity = trigger.event_target();
 
     if let Ok((&Active(Step(dir)), &GridPosition(current_pos))) = step_query.get(entity) {
-        match trigger.event() {
-            FinishActivityPhase(StepPhase::BeginStep) => {
+        match trigger.event().phase {
+            StepPhase::BeginStep => {
                 // TODO: use index to check for collisions!
 
                 commands
