@@ -25,10 +25,11 @@ struct TickPhaseCounter {
 fn main() {
     App::new()
         .add_plugins((
+            // bevy plugins
             DefaultPlugins,
             FpsOverlayPlugin::default(),
             MeshPickingPlugin,
-        )) // bevy plugins
+        ))
         .add_plugins((
             // yanor lib plugins
             AnimateTickPlugin,
@@ -38,12 +39,13 @@ fn main() {
             TickPlugin,
         ))
         .add_plugins((
+            // local plugins
             ItemPlugin,
             PlayerPlugin,
             PresentationPlugin,
             StepPlugin,
             UiPlugin,
-        )) // local plugins
+        ))
         // .insert_resource(Time::<Fixed>::from_hz(0.1 * 60.0))
         .init_resource::<TickPhaseCounter>()
         .add_systems(Startup, spawn_stuff)
