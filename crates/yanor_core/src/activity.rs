@@ -130,7 +130,7 @@ fn advance_activity_phase_queues<A: Activity>(
 ) {
     for (entity, mut queue, stats) in &mut queue_query {
         if let Some(phase) = queue.peek() {
-            // Check the actual value of the duration every time, because it may change from
+            // Check the actual value of the duration every time, because it may change
             // between ticks (i.e. a speed buff being applied and/or expiring)
             // TODO: change to get() once adjusted stats implemented
             let phase_duration = match stats.get_base(&phase.duration()) {
