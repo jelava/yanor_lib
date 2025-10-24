@@ -27,7 +27,6 @@ impl Plugin for AnimateTickPlugin {
                 FixedUpdate,
                 skip_animation_on_input.run_if(in_state(TickState::PostTick)),
             )
-            .add_observer(queue_step_animation_observer)
             .add_observer(on_tween_completed);
     }
 }
@@ -42,16 +41,19 @@ impl Default for AnimationConfig {
     fn default() -> Self {
         Self {
             sequential_animations: false,
-            animation_length: Duration::from_secs_f32(0.5),
+            animation_length: Duration::from_secs_f32(0.2),
         }
     }
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
-struct AnimationQueue(VecDeque<Entity>);
+pub struct AnimationQueue(VecDeque<Entity>);
 
 #[derive(Component)]
-enum PendingAnimation {
+pub enum PendingAnimation {
+    /// Immediately update the position without any gradual shift
+    Reposition,
+    /// Slide the animated the entity along a line from its previous position to its current position
     Step,
 }
 
@@ -132,12 +134,15 @@ fn create_step_animator(
     animation_length: Duration,
     anim_components: (&PendingAnimation, &Transform, &GridPosition),
 ) -> TweenAnim {
+    use PendingAnimation::*;
+
     let (pending_animation, transform, GridPosition(grid_pos)) = anim_components;
     let start = transform.translation;
     let end = Vec3::new(grid_pos.x as f32, grid_pos.y as f32, grid_pos.z as f32);
 
     let tween = match pending_animation {
-        PendingAnimation::Step => Tween::new(
+        Reposition => todo!(),
+        Step => Tween::new(
             EaseFunction::QuadraticInOut,
             animation_length,
             TransformPositionLens { start, end },
@@ -161,21 +166,8 @@ fn skip_animation_on_input(
         //     // commands.trigger(CycleCompletedEvent);
         // }
 
-        todo!("update this");
+        warn!("fix skip after library changes");
     }
-}
-
-// For sequential animation, preserving information about the order in which changes within the
-// tick happened is useful, so queuing happens immediately via observer rather than waiting
-// until PostTick to check for differences between the Transform and the GridPosition (for example)
-fn queue_step_animation_observer(
-    trigger: On<Replace, GridPosition>,
-    mut commands: Commands,
-    mut anim_queue: ResMut<AnimationQueue>,
-) {
-    let entity = trigger.event_target();
-    anim_queue.push_back(entity);
-    commands.entity(entity).insert(PendingAnimation::Step);
 }
 
 fn on_tween_completed(

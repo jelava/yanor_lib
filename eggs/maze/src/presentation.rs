@@ -1,12 +1,20 @@
 pub mod camera;
 
 use bevy::prelude::*;
-use yanor_core::grid::GridPosition;
+use yanor_core::{
+    activity::FinishActivityPhase,
+    animate_tick::{AnimationQueue, PendingAnimation},
+    grid::GridPosition,
+};
 
 pub struct PresentationPlugin;
 
-use crate::{Block, Player, Potion};
-use camera::*;
+use crate::{
+    Block, Player, Potion,
+    items::{Inventory, Item, StoredIn},
+    presentation::camera::*,
+    step::StepPhase,
+};
 
 impl Plugin for PresentationPlugin {
     fn build(&self, app: &mut App) {
@@ -15,7 +23,9 @@ impl Plugin for PresentationPlugin {
             .add_systems(Update, (camera_track_player, update_billboard_transforms))
             .add_observer(on_add_block)
             .add_observer(on_add_player)
-            .add_observer(on_add_potion);
+            .add_observer(on_add_potion)
+            .add_observer(queue_step_animation_observer)
+            .add_observer(reposition_unstored_item);
     }
 }
 
@@ -147,3 +157,41 @@ fn on_add_potion(
 //         warn!("Hovered Block has no Transform");
 //     }
 // }
+
+// For sequential animation, preserving information about the order in which changes within the
+// tick happened is useful, so queuing happens immediately via observer rather than waiting
+// until PostTick to check for differences between the Transform and the GridPosition (for example)
+fn queue_step_animation_observer(
+    trigger: On<FinishActivityPhase<StepPhase>>,
+    mut commands: Commands,
+    mut anim_queue: ResMut<AnimationQueue>,
+) {
+    if trigger.event().phase == StepPhase::BeginStep {
+        let entity = trigger.event_target();
+        anim_queue.push_back(entity);
+        commands.entity(entity).insert(PendingAnimation::Step);
+    }
+}
+
+fn reposition_unstored_item(
+    trigger: On<Remove, StoredIn>,
+    stored_in_query: Query<&StoredIn>,
+    inventory_pos_query: Query<&GridPosition, With<Inventory>>,
+    mut item_pos_query: Query<&mut Transform, With<Item>>,
+) {
+    let item_entity = trigger.event_target();
+
+    if let Ok(&StoredIn(inventory_entity)) = stored_in_query.get(item_entity) {
+        if let Ok(&inventory_grid_pos) = inventory_pos_query.get(inventory_entity) {
+            if let Ok(mut transform) = item_pos_query.get_mut(item_entity) {
+                transform.translation = inventory_grid_pos.into();
+            } else {
+                warn!("item pos info not found");
+            }
+        } else {
+            warn!("inventory pos not found");
+        }
+    } else {
+        warn!("related inventory not found");
+    }
+}

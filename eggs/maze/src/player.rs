@@ -3,7 +3,7 @@ use yanor_core::{
     activity::*, grid::*, index::ComponentIndex, input::ActiveInputController, tick::*,
 };
 
-use crate::{items::*, step::*};
+use crate::{StepLatencyStopwatch, items::*, step::*};
 
 pub struct PlayerPlugin;
 
@@ -33,6 +33,7 @@ fn process_movement_inputs(
         (Entity, &GridPosition),
         (With<ActiveInputController>, With<Inactive>),
     >,
+    mut step_latency_stopwatch: ResMut<StepLatencyStopwatch>,
 ) {
     use AxisDirection::*;
 
@@ -58,6 +59,8 @@ fn process_movement_inputs(
     // } else {
     // todo!("give some kind of feedback indicating that the player can't move there");
     // }
+
+    step_latency_stopwatch.0.unpause();
 }
 
 // TODO: break this up into a multi-stage input (i.e. 1st input = choose activity, 2nd input = choose which item to get/drop)

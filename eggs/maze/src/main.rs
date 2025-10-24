@@ -7,6 +7,7 @@ mod ui;
 use bevy::{
     dev_tools::{fps_overlay::FpsOverlayPlugin, states::log_transitions},
     prelude::*,
+    time::Stopwatch,
 };
 use bevy_rand::prelude::*;
 use rand::Rng;
@@ -21,6 +22,9 @@ struct TickPhaseCounter {
     tick: u32,
     post_tick: u32,
 }
+
+#[derive(Resource, Default)]
+struct StepLatencyStopwatch(pub Stopwatch);
 
 fn main() {
     App::new()
@@ -48,6 +52,7 @@ fn main() {
         ))
         // .insert_resource(Time::<Fixed>::from_hz(0.1 * 60.0))
         .init_resource::<TickPhaseCounter>()
+        .init_resource::<StepLatencyStopwatch>()
         .add_systems(Startup, spawn_stuff)
         .add_systems(PostStartup, start_ticking)
         .add_systems(
@@ -59,6 +64,7 @@ fn main() {
         )
         .add_systems(OnEnter(TickState::PreTick), count_ticks)
         // .add_systems(Update, log_transitions::<TickState>)
+        .add_systems(Update, update_step_latency_stopwatch)
         .run();
 
     fn update_tick_phase_counter(
@@ -79,6 +85,13 @@ fn main() {
             }
             _ => {}
         };
+    }
+
+    fn update_step_latency_stopwatch(
+        time: Res<Time<Real>>,
+        mut stopwatch: ResMut<StepLatencyStopwatch>,
+    ) {
+        stopwatch.0.tick(time.delta());
     }
 }
 
@@ -107,10 +120,10 @@ fn spawn_stuff(mut commands: Commands) {
         ),
         StatBlock::new(&[
             (MOVE_DURATION_STAT_ID, 1u32),
-            (GRAB_ITEM_DURATION_STAT_ID, 5u32),
-            (STORE_ITEM_DURATION_STAT_ID, 5u32),
-            (TAKE_OUT_ITEM_DURATION_STAT_ID, 5u32),
-            (PLACE_ITEM_DURATION_STAT_ID, 5u32),
+            (GRAB_ITEM_DURATION_STAT_ID, 1u32),
+            (STORE_ITEM_DURATION_STAT_ID, 1u32),
+            (TAKE_OUT_ITEM_DURATION_STAT_ID, 1u32),
+            (PLACE_ITEM_DURATION_STAT_ID, 1u32),
         ]),
         Inventory::default(),
     ));
@@ -126,20 +139,20 @@ fn spawn_stuff(mut commands: Commands) {
 }
 
 fn count_ticks(mut stopwatch: Local<TickStopwatch>, mut counter: ResMut<TickPhaseCounter>) {
-    info!("=== tick {} ===", stopwatch.elapsed_ticks());
+    // info!("=== tick {} ===", stopwatch.elapsed_ticks());
     stopwatch.tick(1);
 
-    info!(
-        // "pre-tick: {} ({}%)\ntick: {} ({}%)\npost-tick: {} ({}%)\ntotal: {} (fupds/tick)",
-        // counter.pre_tick,
-        // (counter.pre_tick as f32) / (counter.total as f32) * 100.0,
-        // counter.tick,
-        // (counter.tick as f32) / (counter.total as f32) * 100.0,
-        // counter.post_tick,
-        // (counter.post_tick as f32) / (counter.total as f32) * 100.0,
-        "{} (fupds/tick)",
-        counter.total,
-    );
+    // info!(
+    //     // "pre-tick: {} ({}%)\ntick: {} ({}%)\npost-tick: {} ({}%)\ntotal: {} (fupds/tick)",
+    //     // counter.pre_tick,
+    //     // (counter.pre_tick as f32) / (counter.total as f32) * 100.0,
+    //     // counter.tick,
+    //     // (counter.tick as f32) / (counter.total as f32) * 100.0,
+    //     // counter.post_tick,
+    //     // (counter.post_tick as f32) / (counter.total as f32) * 100.0,
+    //     "{} (fupds/tick)",
+    //     counter.total,
+    // );
 
     counter.total = 0;
     counter.pre_tick = 0;

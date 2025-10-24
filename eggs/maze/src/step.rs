@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use yanor_core::{activity::*, grid::*, stats::*, tick::*};
 
+use crate::StepLatencyStopwatch;
+
 pub struct StepPlugin;
 
 impl Plugin for StepPlugin {
@@ -25,7 +27,7 @@ impl Activity for Step {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum StepPhase {
     BeginStep,
     EndStep,
@@ -62,12 +64,20 @@ fn on_step_phase_finished(
     mut commands: Commands,
     // grid_index: Res<SparseGridIndex>,
     step_query: Query<(&Active<Step>, &GridPosition)>,
+    mut step_latency_stopwatch: ResMut<StepLatencyStopwatch>,
 ) {
     let entity = trigger.event_target();
 
     if let Ok((&Active(Step(dir)), &GridPosition(current_pos))) = step_query.get(entity) {
         match trigger.event().phase {
             StepPhase::BeginStep => {
+                step_latency_stopwatch.0.pause();
+                info!(
+                    "step latency: {} s",
+                    step_latency_stopwatch.0.elapsed_secs()
+                );
+                step_latency_stopwatch.0.reset();
+
                 // TODO: use index to check for collisions!
 
                 commands

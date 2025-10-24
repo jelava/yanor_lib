@@ -115,5 +115,5 @@ fn on_item_remove_stored_in(
 }
 
 fn on_inventory_despawn(trigger: On<Despawn, Inventory>) {
-    todo!("Dump out all the items in the inventory at the location where it despawned");
+    todo!("Dump out all the items in the inventory at (around?) the location where it despawned");
 }

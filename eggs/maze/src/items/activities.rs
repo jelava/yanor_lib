@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{ecs::error::warn, prelude::*};
 use yanor_core::{activity::*, stats::StatId};
 
 use crate::items::*;
@@ -115,7 +115,7 @@ impl ActivityPhase for DropItemPhase {
 pub(super) fn on_drop_item_phase_finished(
     trigger: On<FinishActivityPhase<DropItemPhase>>,
     mut commands: Commands,
-    activity_query: Query<&Active<DropItem>, With<Inventory>>,
+    activity_query: Query<&Active<DropItem>>,
 ) {
     use DropItemPhase::*;
 
@@ -130,5 +130,7 @@ pub(super) fn on_drop_item_phase_finished(
                 commands.entity(item_entity).remove::<StoredIn>();
             }
         }
+    } else {
+        warn!("Can't find item being dropped");
     }
 }
