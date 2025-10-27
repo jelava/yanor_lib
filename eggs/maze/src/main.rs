@@ -5,13 +5,11 @@ mod step;
 mod ui;
 
 use bevy::{
-    dev_tools::{fps_overlay::FpsOverlayPlugin, states::log_transitions},
-    prelude::*,
-    time::Stopwatch,
+    dev_tools::{fps_overlay::FpsOverlayPlugin, states::log_transitions}, ecs::query::QueryFilter, prelude::*, time::Stopwatch
 };
 use bevy_rand::prelude::*;
 use rand::Rng;
-use yanor_core::{activity::*, animate_tick::*, grid::*, input::*, stats::StatBlock, tick::*};
+use yanor_core::{activity::*, animate_tick::*, grid::*, index::ComponentIndex, input::*, stats::StatBlock, tick::*};
 
 use crate::{items::*, player::*, presentation::*, step::*, ui::*};
 
@@ -62,7 +60,7 @@ fn main() {
                 update_tick_phase_counter,
             ),
         )
-        .add_systems(OnEnter(TickState::PreTick), count_ticks)
+        .add_systems(OnEnter(TickState::PreTick), (count_ticks, check_if_goal_reached))
         // .add_systems(Update, log_transitions::<TickState>)
         .add_systems(Update, update_step_latency_stopwatch)
         .run();
@@ -102,12 +100,16 @@ struct Block;
 #[require(Item)]
 struct Potion;
 
+#[derive(Component)]
+struct Goal;
+
+// #[derive(Component)]
+// struct OverlapSensor<F: QueryFilter>;
+
 const MAZE_SIZE: i32 = 24;
 
 fn spawn_stuff(mut commands: Commands) {
     let player_pos = Vec3::new(12.0, 1.0, 12.0);
-    let camera_offset = Vec3::new(0.0, 8.0, -8.0);
-    let camera_pos = player_pos + camera_offset;
 
     commands.spawn((
         Player,
@@ -129,6 +131,8 @@ fn spawn_stuff(mut commands: Commands) {
     ));
 
     commands.spawn((Potion, GridPosition::new(14, 1, 14)));
+
+    commands.spawn((Goal, GridPosition::new(MAZE_SIZE / 2, 1, MAZE_SIZE - 1)));
 
     for x in 0..MAZE_SIZE {
         for z in 0..MAZE_SIZE {
@@ -194,5 +198,17 @@ fn process_random_step_controllers(
         commands
             .entity(entity)
             .insert(Active(Step(GridDirection::new(x_dir, Zero, z_dir))));
+    }
+}
+
+fn check_if_goal_reached(
+    grid_index: Res<SparseGridIndex>,
+    goal_pos: Single<&GridPosition, With<Goal>>,
+    player_entity: Single<Entity, With<Player>>,
+) {
+    if let Some(entities_at_pos) = grid_index.get(&goal_pos) {
+        if entities_at_pos.contains(&*player_entity) {
+            info!("you win i guess");
+        }
     }
 }

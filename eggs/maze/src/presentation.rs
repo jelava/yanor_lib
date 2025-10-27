@@ -10,10 +10,7 @@ use yanor_core::{
 pub struct PresentationPlugin;
 
 use crate::{
-    Block, Player, Potion,
-    items::{Inventory, Item, StoredIn},
-    presentation::camera::*,
-    step::StepPhase,
+    items::{Inventory, Item, StoredIn}, presentation::camera::*, step::StepPhase, Block, Goal, Player, Potion
 };
 
 impl Plugin for PresentationPlugin {
@@ -24,6 +21,7 @@ impl Plugin for PresentationPlugin {
             .add_observer(on_add_block)
             .add_observer(on_add_player)
             .add_observer(on_add_potion)
+            .add_observer(on_add_goal)
             .add_observer(queue_step_animation_observer)
             .add_observer(reposition_unstored_item);
     }
@@ -143,6 +141,47 @@ fn on_add_potion(
         ));
     }
 }
+
+fn on_add_goal(
+    trigger: On<Add, Goal>,
+    mut commands: Commands,
+    asset_handles: Res<AssetHandles>,
+    pos_query: Query<&GridPosition, With<Goal>>,
+) {
+    let target = trigger.event_target();
+
+    if let Ok(&grid_pos) = pos_query.get(target) {        
+        commands.entity(target).insert((
+            Billboard,
+            Transform::from_translation(grid_pos.into()),
+            Mesh3d(asset_handles.block_mesh_handle.clone()),
+            MeshMaterial3d(asset_handles.highlight_material_handle.clone()),
+        ));
+    } else {
+        warn!("Goal component added to entity without GridPosition, will not be presented");
+    }
+}
+
+// TODO: generalized approach to reduce boilerplate
+// fn on_add_presentable<C: Component>(
+//     trigger: On<Add, C>,
+//     mut commands: Commands,
+//     asset_handles: Res<AssetHandles>,
+//     pos_query: Query<&GridPosition, With<C>>,
+// ) {
+//     let target = trigger.event_target();
+
+//     if let Ok(&grid_pos) = pos_query.get(target) {
+//         commands.entity(target).insert((
+//             Billboard,
+//             Transform::from_translation(grid_pos.into()),
+//             Mesh3d(todo!()),
+//             MeshMaterial3d(todo!()),
+//         ));
+//     } else {
+//         warn!("Can't find GridPosition of presentable");
+//     }
+// }
 
 // TODO: on remove/despawn handlers
 
