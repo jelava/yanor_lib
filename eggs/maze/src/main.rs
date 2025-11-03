@@ -1,3 +1,4 @@
+mod door;
 mod items;
 mod player;
 mod presentation;
@@ -5,13 +6,16 @@ mod step;
 mod ui;
 
 use bevy::{
-    dev_tools::{fps_overlay::FpsOverlayPlugin, states::log_transitions}, ecs::query::QueryFilter, prelude::*, time::Stopwatch
+    dev_tools::{fps_overlay::FpsOverlayPlugin, states::log_transitions},
+    ecs::query::QueryFilter,
+    prelude::*,
+    time::Stopwatch
 };
 use bevy_rand::prelude::*;
 use rand::Rng;
 use yanor_core::{activity::*, animate_tick::*, grid::*, index::ComponentIndex, input::*, stats::StatBlock, tick::*};
 
-use crate::{items::*, player::*, presentation::*, step::*, ui::*};
+use crate::{door::*, items::*, player::*, presentation::*, step::*, ui::*};
 
 #[derive(Resource, Default)]
 struct TickPhaseCounter {
@@ -28,7 +32,7 @@ fn main() {
     App::new()
         .add_plugins((
             // bevy plugins
-            DefaultPlugins,
+            DefaultPlugins.set(ImagePlugin::default_nearest()),
             FpsOverlayPlugin::default(),
             MeshPickingPlugin,
         ))
@@ -42,6 +46,7 @@ fn main() {
         ))
         .add_plugins((
             // local plugins
+            DoorPlugin,
             ItemPlugin,
             PlayerPlugin,
             PresentationPlugin,
@@ -94,6 +99,7 @@ fn main() {
 }
 
 #[derive(Component)]
+#[require(GridPosition)]
 struct Block;
 
 #[derive(Component)]
@@ -101,6 +107,7 @@ struct Block;
 struct Potion;
 
 #[derive(Component)]
+#[require(GridPosition)]
 struct Goal;
 
 // #[derive(Component)]
@@ -126,13 +133,36 @@ fn spawn_stuff(mut commands: Commands) {
             (STORE_ITEM_DURATION_STAT_ID, 1u32),
             (TAKE_OUT_ITEM_DURATION_STAT_ID, 1u32),
             (PLACE_ITEM_DURATION_STAT_ID, 1u32),
+            (OPEN_DOOR_DURATION_STAT_ID, 1u32),
+            (CLOSE_DOOR_DURATION_STAT_ID, 1u32),
         ]),
         Inventory::default(),
     ));
 
     commands.spawn((Potion, GridPosition::new(14, 1, 14)));
 
-    commands.spawn((Goal, GridPosition::new(MAZE_SIZE / 2, 1, MAZE_SIZE - 1)));
+    let mid_x = MAZE_SIZE / 2;
+    commands.spawn((Goal, GridPosition::new(mid_x, 1, MAZE_SIZE - 1)));
+
+    commands.spawn((
+        Door,
+        DoorOrientation::FacingZ,
+        Open,
+        GridPosition::new(mid_x, 1, MAZE_SIZE - 5)
+    ));
+
+    commands.spawn((
+        Door,
+        DoorOrientation::FacingX,
+        Open,
+        GridPosition::new(mid_x + 2, 1, MAZE_SIZE - 4)
+    ));
+
+    // walls beside doors
+    commands.spawn((Block, GridPosition::new(mid_x - 1, 1, MAZE_SIZE - 5)));
+    commands.spawn((Block, GridPosition::new(mid_x + 1, 1, MAZE_SIZE - 5)));
+    commands.spawn((Block, GridPosition::new(mid_x + 2, 1, MAZE_SIZE - 5)));
+    commands.spawn((Block, GridPosition::new(mid_x + 2, 1, MAZE_SIZE - 3)));
 
     for x in 0..MAZE_SIZE {
         for z in 0..MAZE_SIZE {

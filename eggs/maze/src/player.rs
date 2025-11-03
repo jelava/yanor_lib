@@ -3,17 +3,18 @@ use yanor_core::{
     activity::*, grid::*, index::ComponentIndex, input::ActiveInputController, tick::*,
 };
 
-use crate::{StepLatencyStopwatch, items::*, step::*};
+use crate::{StepLatencyStopwatch, door::*, items::*, step::*};
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            FixedUpdate,
+            Update,
             (
                 process_movement_inputs.run_if(in_state(TickState::PreTick)),
                 process_item_inputs.run_if(in_state(TickState::PreTick)),
+                process_door_inputs.run_if(in_state(TickState::PreTick)),
             ),
         );
     }
@@ -123,5 +124,107 @@ fn process_item_inputs(
         } else {
             info!("Your inventory is currently empty.");
         }
+    }
+}
+
+// TODO: create a more flexible/generalized/context-sensitive way of interacting w/ stuff
+fn process_door_inputs(
+    mut commands: Commands,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    grid_index: Res<SparseGridIndex>,
+    active_input_controller_pos: Single<
+        (Entity, &GridPosition),
+        (With<ActiveInputController>, With<Inactive>),
+    >,
+    door_query: Query<(&DoorOrientation, Has<Open>), With<Door>>
+) {
+    use DoorOrientation::*;
+
+    let (active_entity, &active_pos) = *active_input_controller_pos;
+
+    if keyboard_input.just_pressed(KeyCode::KeyO) {
+        // TODO: this is an extremely lazy and verbose approach and doesn't give control over which door is opened
+
+        if let Some(entities) = grid_index.get(&(active_pos + GridDirection::X)) {
+            for &entity in entities {
+                if let Ok((door_orientation, door_open)) = door_query.get(entity) {
+                    if door_orientation == &FacingX {
+                        if door_open {
+                            commands
+                                .entity(active_entity)
+                                .insert(Active(CloseDoor(entity)));
+                        } else {
+                            commands
+                                .entity(active_entity)
+                                .insert(Active(OpenDoor(entity)));
+                        }
+
+                        return;
+                    }
+                }
+            }
+        }
+
+        if let Some(entities) = grid_index.get(&(active_pos + GridDirection::NEG_X)) {
+            for &entity in entities {
+                if let Ok((door_orientation, door_open)) = door_query.get(entity) {
+                    if door_orientation == &FacingX {
+                        if door_open {
+                            commands
+                                .entity(active_entity)
+                                .insert(Active(CloseDoor(entity)));
+                        } else {
+                            commands
+                                .entity(active_entity)
+                                .insert(Active(OpenDoor(entity)));
+                        }
+
+                        return;
+                    }
+                }
+            }
+        }
+
+        if let Some(entities) = grid_index.get(&(active_pos + GridDirection::Z)) {
+            for &entity in entities {
+                if let Ok((door_orientation, door_open)) = door_query.get(entity) {
+                    if door_orientation == &FacingZ {
+                        if door_open {
+                            commands
+                                .entity(active_entity)
+                                .insert(Active(CloseDoor(entity)));
+                        } else {
+                            commands
+                                .entity(active_entity)
+                                .insert(Active(OpenDoor(entity)));
+                        }
+
+                        return;
+                    }
+                }
+            }
+        }
+
+        if let Some(entities) = grid_index.get(&(active_pos + GridDirection::NEG_Z)) {
+            for &entity in entities {
+                if let Ok((door_orientation, door_open)) = door_query.get(entity) {
+                    if door_orientation == &FacingZ {
+                        if door_open {
+                            commands
+                                .entity(active_entity)
+                                .insert(Active(CloseDoor(entity)));
+                        } else {
+                            commands
+                                .entity(active_entity)
+                                .insert(Active(OpenDoor(entity)));
+                        }
+
+                        return;
+                    }
+                }
+            }
+        }
+
+        info!("Couldn't find a door to open/close?");
     }
 }

@@ -7,11 +7,15 @@ use yanor_core::{
     grid::GridPosition,
 };
 
-pub struct PresentationPlugin;
-
 use crate::{
-    items::{Inventory, Item, StoredIn}, presentation::camera::*, step::StepPhase, Block, Goal, Player, Potion
+    Block, Door, DoorOrientation, Goal, Player, Potion,
+    door::*,
+    items::*,
+    presentation::camera::*,
+    step::*,
 };
+
+pub struct PresentationPlugin;
 
 impl Plugin for PresentationPlugin {
     fn build(&self, app: &mut App) {
@@ -22,7 +26,10 @@ impl Plugin for PresentationPlugin {
             .add_observer(on_add_player)
             .add_observer(on_add_potion)
             .add_observer(on_add_goal)
-            .add_observer(queue_step_animation_observer)
+            .add_observer(on_add_door)
+            .add_observer(queue_step_animation)
+            .add_observer(queue_door_open_animation)
+            .add_observer(queue_door_close_animation)
             .add_observer(reposition_unstored_item);
     }
 }
@@ -30,8 +37,10 @@ impl Plugin for PresentationPlugin {
 #[derive(Resource)]
 pub struct AssetHandles {
     block_mesh_handle: Handle<Mesh>,
+    door_mesh_handle: Handle<Mesh>,
     rect_mesh_handle: Handle<Mesh>,
     block_material_handle: Handle<StandardMaterial>,
+    door_material_handle: Handle<StandardMaterial>,
     highlight_material_handle: Handle<StandardMaterial>,
     player_material_handle: Handle<StandardMaterial>,
     potion_material_handle: Handle<StandardMaterial>,
@@ -45,9 +54,15 @@ fn init_asset_handles(
 ) {
     commands.insert_resource(AssetHandles {
         block_mesh_handle: meshes.add(Cuboid::default()),
+        door_mesh_handle: meshes.add(Cuboid::new(1.0, 1.0, 0.25)),
         rect_mesh_handle: meshes.add(Rectangle::default()),
         block_material_handle: materials.add(StandardMaterial {
             base_color_texture: Some(asset_server.load("block.png")),
+            unlit: true,
+            ..default()
+        }),
+        door_material_handle: materials.add(StandardMaterial {
+            base_color_texture: Some(asset_server.load("door_front_back.png")),
             unlit: true,
             ..default()
         }),
@@ -162,6 +177,52 @@ fn on_add_goal(
     }
 }
 
+// const DOOR_OFFSET: Vec3 = Vec3::new(0.5, 0.0, 0.0);
+
+fn on_add_door(
+    trigger: On<Add, Door>,
+    mut commands: Commands,
+    asset_handles: Res<AssetHandles>,
+    pos_query: Query<(&GridPosition, &DoorOrientation, Has<Open>), With<Door>>,
+) {
+    let target = trigger.event_target();
+
+    if let Ok((&grid_pos, door_orientation, door_open)) = pos_query.get(target) {
+        let (door_dir, door_offset) = match door_orientation {
+            DoorOrientation::FacingZ => (Dir3::Z, 0.5 * Vec3::X),
+            DoorOrientation::FacingX => (Dir3::X, 0.5 * Vec3::Z),
+        };
+
+        let door_angle = match door_open {
+            true => 1.5,
+            false => 0.0,
+        };
+
+        // warn!("TODO: change initial rotation of door based on whether it's open/closed");
+
+        let child = commands.spawn((
+            Transform::from_translation(door_offset)
+                .looking_to(door_dir, Dir3::Y),
+            Mesh3d(asset_handles.door_mesh_handle.clone()),
+            MeshMaterial3d(asset_handles.door_material_handle.clone()),
+        )).id();
+
+        let pos: Vec3 = grid_pos.into();
+
+        commands
+            .entity(target)
+            .insert((
+                Transform::from_translation(pos - door_offset)
+                    .with_rotation(Quat::from_rotation_y(door_angle)),
+                // Mesh3d(asset_handles.door_mesh_handle.clone()),
+                // MeshMaterial3d(asset_handles.door_material_handle.clone()),
+            ))
+            .add_child(child);
+    } else {
+        warn!("Goal component added to entity without GridPosition, will not be presented");
+    }
+}
+
 // TODO: generalized approach to reduce boilerplate
 // fn on_add_presentable<C: Component>(
 //     trigger: On<Add, C>,
@@ -200,7 +261,7 @@ fn on_add_goal(
 // For sequential animation, preserving information about the order in which changes within the
 // tick happened is useful, so queuing happens immediately via observer rather than waiting
 // until PostTick to check for differences between the Transform and the GridPosition (for example)
-fn queue_step_animation_observer(
+fn queue_step_animation(
     trigger: On<FinishActivityPhase<StepPhase>>,
     mut commands: Commands,
     mut anim_queue: ResMut<AnimationQueue>,
@@ -209,6 +270,34 @@ fn queue_step_animation_observer(
         let entity = trigger.event_target();
         anim_queue.push_back(entity);
         commands.entity(entity).insert(PendingAnimation::Step);
+    }
+}
+
+fn queue_door_open_animation(
+    trigger: On<Remove, Closed>, // Remove rather than Insert to avoid extraneous animation when door is spawned
+    mut commands: Commands,
+    mut anim_queue: ResMut<AnimationQueue>,
+    door_query: Query<Entity, With<Door>>,
+) {
+    let target = trigger.event_target();
+
+    if door_query.contains(target) {
+        anim_queue.push_back(target);
+        commands.entity(target).insert(PendingAnimation::OpenDoor);
+    }
+}
+
+fn queue_door_close_animation(
+    trigger: On<Remove, Open>,
+    mut commands: Commands,
+    mut anim_queue: ResMut<AnimationQueue>,
+    door_query: Query<Entity, With<Door>>,
+) {
+    let target = trigger.event_target();
+
+    if door_query.contains(target) {
+        anim_queue.push_back(target);
+        commands.entity(target).insert(PendingAnimation::CloseDoor);
     }
 }
 

@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::index::{ComponentIndexPlugin, SparseComponentIndex};
 
-#[derive(Component, Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[component(immutable, storage = "SparseSet")]
 pub struct GridPosition(pub IVec3);
 
@@ -33,7 +33,7 @@ pub enum AxisDirection {
     Minus,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct GridDirection {
     x: AxisDirection,
     y: AxisDirection,
@@ -41,7 +41,16 @@ pub struct GridDirection {
 }
 
 impl GridDirection {
-    pub fn new(x: AxisDirection, y: AxisDirection, z: AxisDirection) -> Self {
+    pub const X: Self = Self::new(AxisDirection::Plus, AxisDirection::Zero, AxisDirection::Zero);
+    pub const NEG_X: Self = Self::new(AxisDirection::Minus, AxisDirection::Zero, AxisDirection::Zero);
+
+    pub const Y: Self = Self::new(AxisDirection::Zero, AxisDirection::Plus, AxisDirection::Zero);
+    pub const NEG_Y: Self = Self::new(AxisDirection::Zero, AxisDirection::Minus, AxisDirection::Zero);
+
+    pub const Z: Self = Self::new(AxisDirection::Zero, AxisDirection::Zero, AxisDirection::Plus);
+    pub const NEG_Z: Self = Self::new(AxisDirection::Zero, AxisDirection::Zero, AxisDirection::Minus);
+
+    pub const fn new(x: AxisDirection, y: AxisDirection, z: AxisDirection) -> Self {
         Self { x, y, z }
     }
 }

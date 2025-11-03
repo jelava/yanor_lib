@@ -4,7 +4,7 @@
 use std::{collections::VecDeque, time::Duration};
 
 use bevy::prelude::*;
-use bevy_tweening::{lens::TransformPositionLens, *};
+use bevy_tweening::{lens::{TransformPositionLens, TransformRotationLens}, *};
 
 use crate::{
     grid::GridPosition,
@@ -49,12 +49,13 @@ impl Default for AnimationConfig {
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct AnimationQueue(VecDeque<Entity>);
 
+// TODO: kinda ugly to have all different kinds of animations in one enum
 #[derive(Component)]
 pub enum PendingAnimation {
-    /// Immediately update the position without any gradual shift
-    Reposition,
     /// Slide the animated the entity along a line from its previous position to its current position
     Step,
+    OpenDoor,
+    CloseDoor,
 }
 
 fn start_animating(
@@ -141,14 +142,28 @@ fn create_step_animator(
     let end = Vec3::new(grid_pos.x as f32, grid_pos.y as f32, grid_pos.z as f32);
 
     let tween = match pending_animation {
-        Reposition => todo!(),
         Step => Tween::new(
             EaseFunction::QuadraticInOut,
             animation_length,
             TransformPositionLens { start, end },
-        )
-        .with_cycle_completed_event(true),
-    };
+        ),
+        OpenDoor => Tween::new(
+            EaseFunction::QuadraticInOut,
+            animation_length,
+            TransformRotationLens {
+                start: Quat::IDENTITY, //not quite a quarter circle
+                end: Quat::from_rotation_y(1.5),
+            }
+        ),
+        CloseDoor => Tween::new(
+            EaseFunction::QuadraticInOut,
+            animation_length,
+            TransformRotationLens {
+                start: Quat::from_rotation_y(1.5),
+                end: Quat::IDENTITY,
+            }
+        ),
+    }.with_cycle_completed_event(true);
 
     TweenAnim::new(tween)
 }
