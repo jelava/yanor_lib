@@ -6,9 +6,9 @@ use crate::index::{ComponentIndexPlugin, SparseComponentIndex};
 
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[component(immutable, storage = "SparseSet")]
-pub struct GridPosition(pub IVec3);
+pub struct GridPos(pub IVec3);
 
-impl GridPosition {
+impl GridPos {
     pub fn new(x: i32, y: i32, z: i32) -> Self {
         Self(IVec3::new(x, y, z))
     }
@@ -18,46 +18,49 @@ impl GridPosition {
     }
 }
 
-impl From<GridPosition> for Vec3 {
-    fn from(value: GridPosition) -> Self {
-        let GridPosition(ivec) = value;
+impl From<GridPos> for Vec3 {
+    fn from(value: GridPos) -> Self {
+        let GridPos(ivec) = value;
         Vec3::new(ivec.x as f32, ivec.y as f32, ivec.z as f32)
     }
 }
 
-#[derive(Clone, Copy, Default)]
-pub enum AxisDirection {
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub enum AxisDir {
     #[default]
     Zero,
     Plus,
     Minus,
 }
 
-#[derive(Clone, Copy, Default)]
-pub struct GridDirection {
-    x: AxisDirection,
-    y: AxisDirection,
-    z: AxisDirection,
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub struct GridDir {
+    x: AxisDir,
+    y: AxisDir,
+    z: AxisDir,
 }
 
-impl GridDirection {
-    pub const X: Self = Self::new(AxisDirection::Plus, AxisDirection::Zero, AxisDirection::Zero);
-    pub const NEG_X: Self = Self::new(AxisDirection::Minus, AxisDirection::Zero, AxisDirection::Zero);
+impl GridDir {
+    pub const X: Self = Self::new(AxisDir::Plus, AxisDir::Zero, AxisDir::Zero);
+    pub const NEG_X: Self = Self::new(AxisDir::Minus, AxisDir::Zero, AxisDir::Zero);
 
-    pub const Y: Self = Self::new(AxisDirection::Zero, AxisDirection::Plus, AxisDirection::Zero);
-    pub const NEG_Y: Self = Self::new(AxisDirection::Zero, AxisDirection::Minus, AxisDirection::Zero);
+    pub const Y: Self = Self::new(AxisDir::Zero, AxisDir::Plus, AxisDir::Zero);
+    pub const NEG_Y: Self = Self::new(AxisDir::Zero, AxisDir::Minus, AxisDir::Zero);
 
-    pub const Z: Self = Self::new(AxisDirection::Zero, AxisDirection::Zero, AxisDirection::Plus);
-    pub const NEG_Z: Self = Self::new(AxisDirection::Zero, AxisDirection::Zero, AxisDirection::Minus);
+    pub const Z: Self = Self::new(AxisDir::Zero, AxisDir::Zero, AxisDir::Plus);
+    pub const NEG_Z: Self = Self::new(AxisDir::Zero, AxisDir::Zero, AxisDir::Minus);
 
-    pub const fn new(x: AxisDirection, y: AxisDirection, z: AxisDirection) -> Self {
+    // Not really a valid direction, but useful for checking validity of other GridDirs
+    pub const ZERO: Self = Self::new(AxisDir::Zero, AxisDir::Zero, AxisDir::Zero);
+
+    pub const fn new(x: AxisDir, y: AxisDir, z: AxisDir) -> Self {
         Self { x, y, z }
     }
 }
 
-impl From<GridDirection> for IVec3 {
-    fn from(value: GridDirection) -> Self {
-        use AxisDirection::*;
+impl From<GridDir> for IVec3 {
+    fn from(value: GridDir) -> Self {
+        use AxisDir::*;
 
         let x = match value.x {
             Zero => 0,
@@ -81,10 +84,42 @@ impl From<GridDirection> for IVec3 {
     }
 }
 
-impl Add<GridDirection> for GridPosition {
+impl TryFrom<IVec3> for GridDir {
+    // TODO: actual error type (need to figure out error stuff more generally)
+    type Error = &'static str;
+
+    fn try_from(value: IVec3) -> std::result::Result<Self, Self::Error> {
+        use AxisDir::*;
+
+        let x_dir = match value.x {
+            -1 => Minus,
+            0 => Zero,
+            1 => Plus,
+            _ => return Err("x value too big/small"),
+        };
+
+        let y_dir = match value.y {
+            -1 => Minus,
+            0 => Zero,
+            1 => Plus,
+            _ => return Err("y value too big/small"),
+        };
+
+        let z_dir = match value.z {
+            -1 => Minus,
+            0 => Zero,
+            1 => Plus,
+            _ => return Err("z value too big/small"),
+        };
+
+        Ok(GridDir::new(x_dir, y_dir, z_dir))
+    }
+}
+
+impl Add<GridDir> for GridPos {
     type Output = Self;
 
-    fn add(self, rhs: GridDirection) -> Self::Output {
+    fn add(self, rhs: GridDir) -> Self::Output {
         Self(self.0 + IVec3::from(rhs))
     }
 }
@@ -100,6 +135,6 @@ impl Add<GridDirection> for GridPosition {
 /// Useful for keeping track of locations of things that are scattered across a wide area with no extra
 /// memory overhead, or which don't need to be efficiently accessible in sequence (an underlying data
 /// structure with better spatial locality will do better for that).
-pub type SparseGridIndex = SparseComponentIndex<GridPosition>;
+pub type SparseGridIndex = SparseComponentIndex<GridPos>;
 
 pub type SparseGridIndexPlugin = ComponentIndexPlugin<SparseGridIndex>;

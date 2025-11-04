@@ -1,7 +1,7 @@
 pub mod activities;
 
 use bevy::prelude::*;
-use yanor_core::{activity::*, grid::GridPosition};
+use yanor_core::{activity::*, grid::GridPos};
 
 use activities::*;
 
@@ -73,7 +73,7 @@ fn on_item_add_stored_in(
                 // removed from inventory
                 commands
                     .entity(target)
-                    .remove::<GridPosition>()
+                    .remove::<GridPos>()
                     .insert(Visibility::Hidden);
             }
         } else {
@@ -88,7 +88,7 @@ fn on_item_remove_stored_in(
     trigger: On<Remove, StoredIn>,
     mut commands: Commands,
     stored_in_query: Query<&StoredIn>,
-    mut inventory_query: Query<(&mut Inventory, &GridPosition)>,
+    mut inventory_query: Query<(&mut Inventory, &GridPos)>,
 ) {
     let target = trigger.event_target();
 

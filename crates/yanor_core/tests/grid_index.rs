@@ -4,7 +4,7 @@ use common::*;
 
 use bevy::prelude::*;
 use yanor_core::{
-    grid::{GridPosition, SparseGridIndex, SparseGridIndexPlugin},
+    grid::{GridPos, SparseGridIndex, SparseGridIndexPlugin},
     index::ComponentIndex,
 };
 
@@ -23,11 +23,11 @@ fn basic_sparse_grid_index_tests() {
 }
 
 fn init_spawns(mut commands: Commands) {
-    commands.spawn(GridPosition(IVec3::new(1, 2, 3)));
-    commands.spawn(GridPosition(IVec3::new(0, 0, 0)));
+    commands.spawn(GridPos(IVec3::new(1, 2, 3)));
+    commands.spawn(GridPos(IVec3::new(0, 0, 0)));
 }
 
-fn check_init(grid_index: Res<SparseGridIndex>, pos_query: Query<&GridPosition>) {
+fn check_init(grid_index: Res<SparseGridIndex>, pos_query: Query<&GridPos>) {
     for pos in &pos_query {
         let pos_entities = grid_index.get(pos).expect("Expected to find entities");
         assert_eq!(pos_entities.len(), 1);
@@ -38,7 +38,7 @@ fn check_init(grid_index: Res<SparseGridIndex>, pos_query: Query<&GridPosition>)
 fn tick(mut commands: Commands, grid_index: Res<SparseGridIndex>) {
     // move the position of the entity at (1, 2, 3) to test grid index update
     let entities_at_123 = grid_index
-        .get(&GridPosition(IVec3::new(1, 2, 3)))
+        .get(&GridPos(IVec3::new(1, 2, 3)))
         .expect("Expected to find entity at (1, 2, 3)");
 
     assert_eq!(entities_at_123.len(), 1);
@@ -47,10 +47,10 @@ fn tick(mut commands: Commands, grid_index: Res<SparseGridIndex>) {
 
     commands
         .entity(*entity_at_123)
-        .insert(GridPosition(IVec3::new(2, 3, 4)));
+        .insert(GridPos(IVec3::new(2, 3, 4)));
 
     let entities_at_000 = grid_index
-        .get(&GridPosition(IVec3::new(0, 0, 0)))
+        .get(&GridPos(IVec3::new(0, 0, 0)))
         .expect("Expected to find entity at (0, 0, 0)");
 
     assert_eq!(entities_at_000.len(), 1);
@@ -61,13 +61,13 @@ fn tick(mut commands: Commands, grid_index: Res<SparseGridIndex>) {
     commands.entity(entity_at_000).despawn();
 }
 
-fn check_tick(grid_index: Res<SparseGridIndex>, pos_query: Query<Entity, With<GridPosition>>) {
+fn check_tick(grid_index: Res<SparseGridIndex>, pos_query: Query<Entity, With<GridPos>>) {
     // there should be only one entity with a position at (2, 3, 4)
     let pos_entity = pos_query.single().expect("Query should get one entity");
 
     // this should just be a different way of getting that same entity
     let entities_at_234 = grid_index
-        .get(&GridPosition(IVec3::new(2, 3, 4)))
+        .get(&GridPos(IVec3::new(2, 3, 4)))
         .expect("Expected entity at (2, 3, 4)");
 
     assert_eq!(entities_at_234.len(), 1);
@@ -77,8 +77,8 @@ fn check_tick(grid_index: Res<SparseGridIndex>, pos_query: Query<Entity, With<Gr
     assert_eq!(pos_entity, entity_at_234);
 
     // nothing should be indexed at (0, 0, 0) since that entity was despawned
-    assert!(grid_index.get(&GridPosition(IVec3::ZERO)).is_none());
+    assert!(grid_index.get(&GridPos(IVec3::ZERO)).is_none());
 
     // nothing should be indexed at (1, 2, 3) since that entity moved
-    assert!(grid_index.get(&GridPosition(IVec3::new(1, 2, 3))).is_none());
+    assert!(grid_index.get(&GridPos(IVec3::new(1, 2, 3))).is_none());
 }

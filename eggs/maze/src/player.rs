@@ -12,7 +12,7 @@ impl Plugin for PlayerPlugin {
         app.add_systems(
             Update,
             (
-                process_movement_inputs.run_if(in_state(TickState::PreTick)),
+                // process_movement_inputs.run_if(in_state(TickState::PreTick)),
                 process_item_inputs.run_if(in_state(TickState::PreTick)),
                 process_door_inputs.run_if(in_state(TickState::PreTick)),
             ),
@@ -26,43 +26,43 @@ pub struct Player;
 #[derive(Component)]
 pub struct Name(String);
 
-fn process_movement_inputs(
-    mut commands: Commands,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    grid_index: Res<SparseGridIndex>,
-    active_input_controller_query: Single<
-        (Entity, &GridPosition),
-        (With<ActiveInputController>, With<Inactive>),
-    >,
-    mut step_latency_stopwatch: ResMut<StepLatencyStopwatch>,
-) {
-    use AxisDirection::*;
+// fn process_movement_inputs(
+//     mut commands: Commands,
+//     keyboard_input: Res<ButtonInput<KeyCode>>,
+//     grid_index: Res<SparseGridIndex>,
+//     active_input_controller_query: Single<
+//         (Entity, &GridPos),
+//         (With<ActiveInputController>, With<Inactive>),
+//     >,
+//     mut step_latency_stopwatch: ResMut<StepLatencyStopwatch>,
+// ) {
+//     use AxisDir::*;
 
-    let (entity, &pos) = *active_input_controller_query;
-    let mut entity_commands = commands.entity(entity);
+//     let (entity, &pos) = *active_input_controller_query;
+//     let mut entity_commands = commands.entity(entity);
 
-    let direction;
+//     let direction;
 
-    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
-        direction = GridDirection::new(Zero, Zero, Plus);
-    } else if keyboard_input.just_pressed(KeyCode::ArrowDown) {
-        direction = GridDirection::new(Zero, Zero, Minus);
-    } else if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
-        direction = GridDirection::new(Plus, Zero, Zero);
-    } else if keyboard_input.just_pressed(KeyCode::ArrowRight) {
-        direction = GridDirection::new(Minus, Zero, Zero);
-    } else {
-        return;
-    }
+//     if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+//         direction = GridDir::new(Zero, Zero, Plus);
+//     } else if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+//         direction = GridDir::new(Zero, Zero, Minus);
+//     } else if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+//         direction = GridDir::new(Plus, Zero, Zero);
+//     } else if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+//         direction = GridDir::new(Minus, Zero, Zero);
+//     } else {
+//         return;
+//     }
 
-    // if !grid_index.contains(&(pos + direction)) { // TODO: also check if there is something below to stand on!
-    entity_commands.insert(Active(Step(direction)));
-    // } else {
-    // todo!("give some kind of feedback indicating that the player can't move there");
-    // }
+//     // if !grid_index.contains(&(pos + direction)) { // TODO: also check if there is something below to stand on!
+//     entity_commands.insert(Active(Step(direction)));
+//     // } else {
+//     // todo!("give some kind of feedback indicating that the player can't move there");
+//     // }
 
-    step_latency_stopwatch.0.unpause();
-}
+//     step_latency_stopwatch.0.unpause();
+// }
 
 // TODO: break this up into a multi-stage input (i.e. 1st input = choose activity, 2nd input = choose which item to get/drop)
 fn process_item_inputs(
@@ -70,7 +70,7 @@ fn process_item_inputs(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     grid_index: Res<SparseGridIndex>,
     active_controller_query: Single<
-        (Entity, &GridPosition, Option<&Stores>),
+        (Entity, &GridPos, Option<&Stores>),
         (With<ActiveInputController>, With<Inactive>, With<Inventory>),
     >,
     stored_items_query: Query<Entity, (With<Item>, With<StoredIn>)>,
@@ -133,10 +133,10 @@ fn process_door_inputs(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     grid_index: Res<SparseGridIndex>,
     active_input_controller_pos: Single<
-        (Entity, &GridPosition),
+        (Entity, &GridPos),
         (With<ActiveInputController>, With<Inactive>),
     >,
-    door_query: Query<(&DoorOrientation, Has<Open>), With<Door>>
+    door_query: Query<(&DoorOrientation, Has<Open>), With<Door>>,
 ) {
     use DoorOrientation::*;
 
@@ -145,7 +145,7 @@ fn process_door_inputs(
     if keyboard_input.just_pressed(KeyCode::KeyO) {
         // TODO: this is an extremely lazy and verbose approach and doesn't give control over which door is opened
 
-        if let Some(entities) = grid_index.get(&(active_pos + GridDirection::X)) {
+        if let Some(entities) = grid_index.get(&(active_pos + GridDir::X)) {
             for &entity in entities {
                 if let Ok((door_orientation, door_open)) = door_query.get(entity) {
                     if door_orientation == &FacingX {
@@ -165,7 +165,7 @@ fn process_door_inputs(
             }
         }
 
-        if let Some(entities) = grid_index.get(&(active_pos + GridDirection::NEG_X)) {
+        if let Some(entities) = grid_index.get(&(active_pos + GridDir::NEG_X)) {
             for &entity in entities {
                 if let Ok((door_orientation, door_open)) = door_query.get(entity) {
                     if door_orientation == &FacingX {
@@ -185,7 +185,7 @@ fn process_door_inputs(
             }
         }
 
-        if let Some(entities) = grid_index.get(&(active_pos + GridDirection::Z)) {
+        if let Some(entities) = grid_index.get(&(active_pos + GridDir::Z)) {
             for &entity in entities {
                 if let Ok((door_orientation, door_open)) = door_query.get(entity) {
                     if door_orientation == &FacingZ {
@@ -205,7 +205,7 @@ fn process_door_inputs(
             }
         }
 
-        if let Some(entities) = grid_index.get(&(active_pos + GridDirection::NEG_Z)) {
+        if let Some(entities) = grid_index.get(&(active_pos + GridDir::NEG_Z)) {
             for &entity in entities {
                 if let Ok((door_orientation, door_open)) = door_query.get(entity) {
                     if door_orientation == &FacingZ {

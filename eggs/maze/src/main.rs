@@ -9,13 +9,23 @@ use bevy::{
     dev_tools::{fps_overlay::FpsOverlayPlugin, states::log_transitions},
     ecs::query::QueryFilter,
     prelude::*,
-    time::Stopwatch
+    time::Stopwatch,
 };
 use bevy_rand::prelude::*;
 use rand::Rng;
-use yanor_core::{activity::*, animate_tick::*, grid::*, index::ComponentIndex, input::*, stats::StatBlock, tick::*};
+use yanor_core::{
+    activity::*, animate_tick::*, grid::*, index::ComponentIndex, input::*, stats::StatBlock,
+    tick::*,
+};
 
-use crate::{door::*, items::*, player::*, presentation::*, step::*, ui::*};
+use crate::{
+    door::*,
+    items::*,
+    player::*,
+    presentation::*,
+    step::*,
+    ui::{cursor::CursorPlugin, *},
+};
 
 #[derive(Resource, Default)]
 struct TickPhaseCounter {
@@ -46,6 +56,7 @@ fn main() {
         ))
         .add_plugins((
             // local plugins
+            CursorPlugin,
             DoorPlugin,
             ItemPlugin,
             PlayerPlugin,
@@ -65,7 +76,10 @@ fn main() {
                 update_tick_phase_counter,
             ),
         )
-        .add_systems(OnEnter(TickState::PreTick), (count_ticks, check_if_goal_reached))
+        .add_systems(
+            OnEnter(TickState::PreTick),
+            (count_ticks, check_if_goal_reached),
+        )
         // .add_systems(Update, log_transitions::<TickState>)
         .add_systems(Update, update_step_latency_stopwatch)
         .run();
@@ -99,7 +113,7 @@ fn main() {
 }
 
 #[derive(Component)]
-#[require(GridPosition)]
+#[require(GridPos)]
 struct Block;
 
 #[derive(Component)]
@@ -107,7 +121,7 @@ struct Block;
 struct Potion;
 
 #[derive(Component)]
-#[require(GridPosition)]
+#[require(GridPos)]
 struct Goal;
 
 // #[derive(Component)]
@@ -122,7 +136,7 @@ fn spawn_stuff(mut commands: Commands) {
         Player,
         InputController { queue_priority: 0 },
         // RandomStepController,
-        GridPosition::new(
+        GridPos::new(
             player_pos.x as i32,
             player_pos.y as i32,
             player_pos.z as i32,
@@ -139,34 +153,34 @@ fn spawn_stuff(mut commands: Commands) {
         Inventory::default(),
     ));
 
-    commands.spawn((Potion, GridPosition::new(14, 1, 14)));
+    commands.spawn((Potion, GridPos::new(14, 1, 14)));
 
     let mid_x = MAZE_SIZE / 2;
-    commands.spawn((Goal, GridPosition::new(mid_x, 1, MAZE_SIZE - 1)));
+    commands.spawn((Goal, GridPos::new(mid_x, 1, MAZE_SIZE - 1)));
 
     commands.spawn((
         Door,
         DoorOrientation::FacingZ,
         Open,
-        GridPosition::new(mid_x, 1, MAZE_SIZE - 5)
+        GridPos::new(mid_x, 1, MAZE_SIZE - 5),
     ));
 
     commands.spawn((
         Door,
         DoorOrientation::FacingX,
         Open,
-        GridPosition::new(mid_x + 2, 1, MAZE_SIZE - 4)
+        GridPos::new(mid_x + 2, 1, MAZE_SIZE - 4),
     ));
 
     // walls beside doors
-    commands.spawn((Block, GridPosition::new(mid_x - 1, 1, MAZE_SIZE - 5)));
-    commands.spawn((Block, GridPosition::new(mid_x + 1, 1, MAZE_SIZE - 5)));
-    commands.spawn((Block, GridPosition::new(mid_x + 2, 1, MAZE_SIZE - 5)));
-    commands.spawn((Block, GridPosition::new(mid_x + 2, 1, MAZE_SIZE - 3)));
+    commands.spawn((Block, GridPos::new(mid_x - 1, 1, MAZE_SIZE - 5)));
+    commands.spawn((Block, GridPos::new(mid_x + 1, 1, MAZE_SIZE - 5)));
+    commands.spawn((Block, GridPos::new(mid_x + 2, 1, MAZE_SIZE - 5)));
+    commands.spawn((Block, GridPos::new(mid_x + 2, 1, MAZE_SIZE - 3)));
 
     for x in 0..MAZE_SIZE {
         for z in 0..MAZE_SIZE {
-            commands.spawn((Block, GridPosition(IVec3::new(x, 0, z))));
+            commands.spawn((Block, GridPos(IVec3::new(x, 0, z))));
             // .observe(on_block_hover);
         }
     }
@@ -210,7 +224,7 @@ fn process_random_step_controllers(
         ),
     >,
 ) {
-    use AxisDirection::*;
+    use AxisDir::*;
 
     for entity in controller_query {
         let x_dir = match rng.random_range(0..3) {
@@ -227,13 +241,13 @@ fn process_random_step_controllers(
 
         commands
             .entity(entity)
-            .insert(Active(Step(GridDirection::new(x_dir, Zero, z_dir))));
+            .insert(Active(Step(GridDir::new(x_dir, Zero, z_dir))));
     }
 }
 
 fn check_if_goal_reached(
     grid_index: Res<SparseGridIndex>,
-    goal_pos: Single<&GridPosition, With<Goal>>,
+    goal_pos: Single<&GridPos, With<Goal>>,
     player_entity: Single<Entity, With<Player>>,
 ) {
     if let Some(entities_at_pos) = grid_index.get(&goal_pos) {

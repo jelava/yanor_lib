@@ -4,14 +4,11 @@ use bevy::prelude::*;
 use yanor_core::{
     activity::FinishActivityPhase,
     animate_tick::{AnimationQueue, PendingAnimation},
-    grid::GridPosition,
+    grid::GridPos,
 };
 
 use crate::{
-    Block, Door, DoorOrientation, Goal, Player, Potion,
-    door::*,
-    items::*,
-    presentation::camera::*,
+    Block, Door, DoorOrientation, Goal, Player, Potion, door::*, items::*, presentation::camera::*,
     step::*,
 };
 
@@ -36,14 +33,14 @@ impl Plugin for PresentationPlugin {
 
 #[derive(Resource)]
 pub struct AssetHandles {
-    block_mesh_handle: Handle<Mesh>,
-    door_mesh_handle: Handle<Mesh>,
-    rect_mesh_handle: Handle<Mesh>,
-    block_material_handle: Handle<StandardMaterial>,
-    door_material_handle: Handle<StandardMaterial>,
-    highlight_material_handle: Handle<StandardMaterial>,
-    player_material_handle: Handle<StandardMaterial>,
-    potion_material_handle: Handle<StandardMaterial>,
+    pub block_mesh_handle: Handle<Mesh>,
+    pub door_mesh_handle: Handle<Mesh>,
+    pub rect_mesh_handle: Handle<Mesh>,
+    pub block_material_handle: Handle<StandardMaterial>,
+    pub door_material_handle: Handle<StandardMaterial>,
+    pub cursor_material_handle: Handle<StandardMaterial>,
+    pub player_material_handle: Handle<StandardMaterial>,
+    pub potion_material_handle: Handle<StandardMaterial>,
 }
 
 fn init_asset_handles(
@@ -66,7 +63,7 @@ fn init_asset_handles(
             unlit: true,
             ..default()
         }),
-        highlight_material_handle: materials.add(StandardMaterial {
+        cursor_material_handle: materials.add(StandardMaterial {
             base_color_texture: Some(asset_server.load("highlight.png")),
             unlit: true,
             alpha_mode: AlphaMode::Mask(1.0),
@@ -94,7 +91,7 @@ fn on_add_block(
     trigger: On<Add, Block>,
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
-    pos_query: Query<&GridPosition, With<Block>>,
+    pos_query: Query<&GridPos, With<Block>>,
 ) {
     let target = trigger.event_target();
 
@@ -113,7 +110,7 @@ fn on_add_player(
     trigger: On<Add, Player>,
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
-    pos_query: Query<&GridPosition, With<Player>>,
+    pos_query: Query<&GridPos, With<Player>>,
 ) {
     let target = trigger.event_target();
 
@@ -133,7 +130,7 @@ fn on_add_potion(
     trigger: On<Add, Potion>,
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
-    pos_query: Query<&GridPosition, With<Potion>>,
+    pos_query: Query<&GridPos, With<Potion>>,
 ) {
     let target = trigger.event_target();
 
@@ -161,16 +158,15 @@ fn on_add_goal(
     trigger: On<Add, Goal>,
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
-    pos_query: Query<&GridPosition, With<Goal>>,
+    pos_query: Query<&GridPos, With<Goal>>,
 ) {
     let target = trigger.event_target();
 
-    if let Ok(&grid_pos) = pos_query.get(target) {        
+    if let Ok(&grid_pos) = pos_query.get(target) {
         commands.entity(target).insert((
-            Billboard,
             Transform::from_translation(grid_pos.into()),
             Mesh3d(asset_handles.block_mesh_handle.clone()),
-            MeshMaterial3d(asset_handles.highlight_material_handle.clone()),
+            MeshMaterial3d(asset_handles.cursor_material_handle.clone()),
         ));
     } else {
         warn!("Goal component added to entity without GridPosition, will not be presented");
@@ -183,7 +179,7 @@ fn on_add_door(
     trigger: On<Add, Door>,
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
-    pos_query: Query<(&GridPosition, &DoorOrientation, Has<Open>), With<Door>>,
+    pos_query: Query<(&GridPos, &DoorOrientation, Has<Open>), With<Door>>,
 ) {
     let target = trigger.event_target();
 
@@ -200,12 +196,13 @@ fn on_add_door(
 
         // warn!("TODO: change initial rotation of door based on whether it's open/closed");
 
-        let child = commands.spawn((
-            Transform::from_translation(door_offset)
-                .looking_to(door_dir, Dir3::Y),
-            Mesh3d(asset_handles.door_mesh_handle.clone()),
-            MeshMaterial3d(asset_handles.door_material_handle.clone()),
-        )).id();
+        let child = commands
+            .spawn((
+                Transform::from_translation(door_offset).looking_to(door_dir, Dir3::Y),
+                Mesh3d(asset_handles.door_mesh_handle.clone()),
+                MeshMaterial3d(asset_handles.door_material_handle.clone()),
+            ))
+            .id();
 
         let pos: Vec3 = grid_pos.into();
 
@@ -304,7 +301,7 @@ fn queue_door_close_animation(
 fn reposition_unstored_item(
     trigger: On<Remove, StoredIn>,
     stored_in_query: Query<&StoredIn>,
-    inventory_pos_query: Query<&GridPosition, With<Inventory>>,
+    inventory_pos_query: Query<&GridPos, With<Inventory>>,
     mut item_pos_query: Query<&mut Transform, With<Item>>,
 ) {
     let item_entity = trigger.event_target();

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use yanor_core::{
-    grid::{GridPosition, SparseGridIndex, SparseGridIndexPlugin},
+    grid::{GridPos, SparseGridIndex, SparseGridIndexPlugin},
     index::ComponentIndex,
 };
 
@@ -92,7 +92,7 @@ fn spawn_game(mut commands: Commands, asset_handles: Res<AssetHandles>) {
             commands
                 .spawn((
                     BoardBlock,
-                    GridPosition(IVec3::new(x, 0, z)),
+                    GridPos(IVec3::new(x, 0, z)),
                     Transform::from_xyz(x as f32, 0.0, z as f32),
                     Mesh3d(asset_handles.block_mesh_handle.clone()),
                     MeshMaterial3d(asset_handles.block_material_handle.clone()),
@@ -141,7 +141,7 @@ fn on_board_click(
     camera_transform: Single<&Transform, With<Camera>>,
     cell_highlight_transform: Single<&Transform, With<CellHighlight>>,
 ) {
-    let grid_pos = GridPosition(IVec3::new(
+    let grid_pos = GridPos(IVec3::new(
         cell_highlight_transform.translation.x as i32,
         cell_highlight_transform.translation.y as i32,
         cell_highlight_transform.translation.z as i32,

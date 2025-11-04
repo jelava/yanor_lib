@@ -13,7 +13,7 @@ impl Plugin for StepPlugin {
     }
 }
 
-pub(crate) struct Step(pub GridDirection);
+pub(crate) struct Step(pub GridDir);
 
 impl Activity for Step {
     type Phase = StepPhase;
@@ -63,12 +63,12 @@ fn on_step_phase_finished(
     trigger: On<FinishActivityPhase<StepPhase>>,
     mut commands: Commands,
     // grid_index: Res<SparseGridIndex>,
-    step_query: Query<(&Active<Step>, &GridPosition)>,
+    step_query: Query<(&Active<Step>, &GridPos)>,
     mut step_latency_stopwatch: ResMut<StepLatencyStopwatch>,
 ) {
     let entity = trigger.event_target();
 
-    if let Ok((&Active(Step(dir)), &GridPosition(current_pos))) = step_query.get(entity) {
+    if let Ok((&Active(Step(dir)), &GridPos(current_pos))) = step_query.get(entity) {
         match trigger.event().phase {
             StepPhase::BeginStep => {
                 step_latency_stopwatch.0.pause();
@@ -82,7 +82,7 @@ fn on_step_phase_finished(
 
                 commands
                     .entity(entity)
-                    .insert(GridPosition(current_pos + IVec3::from(dir)));
+                    .insert(GridPos(current_pos + IVec3::from(dir)));
             }
             _ => {}
         }

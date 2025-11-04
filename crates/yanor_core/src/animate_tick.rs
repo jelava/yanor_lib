@@ -4,10 +4,13 @@
 use std::{collections::VecDeque, time::Duration};
 
 use bevy::prelude::*;
-use bevy_tweening::{lens::{TransformPositionLens, TransformRotationLens}, *};
+use bevy_tweening::{
+    lens::{TransformPositionLens, TransformRotationLens},
+    *,
+};
 
 use crate::{
-    grid::GridPosition,
+    grid::GridPos,
     tick::{PendingPostTick, TickState, Tickable},
 };
 
@@ -41,7 +44,7 @@ impl Default for AnimationConfig {
     fn default() -> Self {
         Self {
             sequential_animations: false,
-            animation_length: Duration::from_secs_f32(0.2),
+            animation_length: Duration::from_secs_f32(0.25),
         }
     }
 }
@@ -62,7 +65,7 @@ fn start_animating(
     commands: Commands,
     anim_config: Res<AnimationConfig>,
     mut anim_queue: ResMut<AnimationQueue>,
-    pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
+    pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPos)>,
 ) {
     if !anim_queue.is_empty() {
         if anim_config.sequential_animations {
@@ -94,7 +97,7 @@ fn finish_post_tick_if_no_animation(
 fn start_all_animations(
     mut commands: Commands,
     anim_config: Res<AnimationConfig>,
-    pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
+    pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPos)>,
 ) {
     for (entity, pending_animation, transform, grid_pos) in pending_animation_query {
         commands
@@ -111,7 +114,7 @@ fn start_next_animation(
     mut commands: Commands,
     anim_config: Res<AnimationConfig>,
     mut anim_queue: ResMut<AnimationQueue>,
-    pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
+    pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPos)>,
 ) {
     if let Some(entity) = anim_queue.pop_front() {
         if let Ok((_, pending_animation, transform, grid_pos)) = pending_animation_query.get(entity)
@@ -133,11 +136,11 @@ fn start_next_animation(
 
 fn create_step_animator(
     animation_length: Duration,
-    anim_components: (&PendingAnimation, &Transform, &GridPosition),
+    anim_components: (&PendingAnimation, &Transform, &GridPos),
 ) -> TweenAnim {
     use PendingAnimation::*;
 
-    let (pending_animation, transform, GridPosition(grid_pos)) = anim_components;
+    let (pending_animation, transform, GridPos(grid_pos)) = anim_components;
     let start = transform.translation;
     let end = Vec3::new(grid_pos.x as f32, grid_pos.y as f32, grid_pos.z as f32);
 
@@ -153,7 +156,7 @@ fn create_step_animator(
             TransformRotationLens {
                 start: Quat::IDENTITY, //not quite a quarter circle
                 end: Quat::from_rotation_y(1.5),
-            }
+            },
         ),
         CloseDoor => Tween::new(
             EaseFunction::QuadraticInOut,
@@ -161,9 +164,10 @@ fn create_step_animator(
             TransformRotationLens {
                 start: Quat::from_rotation_y(1.5),
                 end: Quat::IDENTITY,
-            }
+            },
         ),
-    }.with_cycle_completed_event(true);
+    }
+    .with_cycle_completed_event(true);
 
     TweenAnim::new(tween)
 }
@@ -190,7 +194,7 @@ fn on_tween_completed(
     mut commands: Commands,
     anim_config: Res<AnimationConfig>,
     anim_queue: ResMut<AnimationQueue>,
-    pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPosition)>,
+    pending_animation_query: Query<(Entity, &PendingAnimation, &Transform, &GridPos)>,
 ) {
     commands
         .entity(trigger.event_target())
