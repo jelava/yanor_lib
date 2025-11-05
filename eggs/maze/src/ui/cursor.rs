@@ -2,11 +2,12 @@ use bevy::prelude::*;
 use yanor_core::{
     activity::{Active, Inactive},
     grid::*,
+    index::ComponentIndex,
     input::ActiveInputController,
     tick::TickState,
 };
 
-use crate::{player::Player, presentation::AssetHandles, step::Step};
+use crate::{Block, collision::Collider, player::Player, presentation::AssetHandles, step::Step};
 
 pub struct CursorPlugin;
 
@@ -14,11 +15,7 @@ impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PostStartup, spawn_cursor).add_systems(
             Update,
-            (
-                cursor_movement_controls, //.run_if(in_state(TickState::PreTick)),
-                cursor_interact_move,     //.run_if(in_state(TickState::PreTick)),
-            )
-                .run_if(in_state(TickState::PreTick)),
+            (cursor_movement_controls, cursor_interact).run_if(in_state(TickState::PreTick)),
         );
     }
 }
@@ -59,6 +56,10 @@ fn cursor_movement_controls(
         move_dir = GridDir::new(Plus, Zero, Zero);
     } else if keyboard_input.just_pressed(KeyCode::ArrowRight) {
         move_dir = GridDir::new(Minus, Zero, Zero);
+    } else if keyboard_input.just_pressed(KeyCode::PageDown) {
+        move_dir = GridDir::new(Zero, Minus, Zero);
+    } else if keyboard_input.just_pressed(KeyCode::PageUp) {
+        move_dir = GridDir::new(Zero, Plus, Zero);
     } else {
         return;
     }
@@ -70,14 +71,17 @@ fn cursor_movement_controls(
     transform.translation = new_pos.into();
 }
 
-fn cursor_interact_move(
+fn cursor_interact(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    grid_index: Res<SparseGridIndex>,
     cursor_pos: Single<&GridPos, With<Cursor>>,
     active_input_controller: Single<
         (Entity, &GridPos),
         (With<ActiveInputController>, With<Inactive>),
     >,
+    collider_query: Query<&Collider>,
+    block_query: Query<&Block>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         let &GridPos(cursor_vec) = *cursor_pos;
@@ -87,7 +91,25 @@ fn cursor_interact_move(
 
         if let Ok(dir) = cursor_offset.try_into() {
             if dir != GridDir::ZERO {
-                commands.entity(active_entity).insert(Active(Step(dir)));
+                let cursor_pos_empty = match grid_index.get(*cursor_pos) {
+                    Some(entities) => entities
+                        .iter()
+                        .all(|&entity| !collider_query.contains(entity)),
+                    None => true,
+                };
+
+                let below_cursor = **cursor_pos + GridDir::NEG_Y;
+
+                let is_walkable = match grid_index.get(&below_cursor) {
+                    Some(entities) => {
+                        entities.iter().any(|&entity| block_query.contains(entity)) // TODO: more general "traversable" property?
+                    }
+                    None => false, // TODO: what if cursor-controlled entity is flying/floating?
+                };
+
+                if cursor_pos_empty && is_walkable {
+                    commands.entity(active_entity).insert(Active(Step(dir)));
+                }
             }
         }
     }

@@ -1,3 +1,4 @@
+mod collision;
 mod door;
 mod items;
 mod player;
@@ -19,6 +20,7 @@ use yanor_core::{
 };
 
 use crate::{
+    collision::Collider,
     door::*,
     items::*,
     player::*,
@@ -43,7 +45,7 @@ fn main() {
         .add_plugins((
             // bevy plugins
             DefaultPlugins.set(ImagePlugin::default_nearest()),
-            FpsOverlayPlugin::default(),
+            // FpsOverlayPlugin::default(),
             MeshPickingPlugin,
         ))
         .add_plugins((
@@ -113,7 +115,7 @@ fn main() {
 }
 
 #[derive(Component)]
-#[require(GridPos)]
+#[require(Collider, GridPos)]
 struct Block;
 
 #[derive(Component)]
@@ -156,12 +158,12 @@ fn spawn_stuff(mut commands: Commands) {
     commands.spawn((Potion, GridPos::new(14, 1, 14)));
 
     let mid_x = MAZE_SIZE / 2;
-    commands.spawn((Goal, GridPos::new(mid_x, 1, MAZE_SIZE - 1)));
+    // commands.spawn((Goal, GridPos::new(mid_x, 1, MAZE_SIZE - 1)));
 
     commands.spawn((
         Door,
         DoorOrientation::FacingZ,
-        Open,
+        Closed,
         GridPos::new(mid_x, 1, MAZE_SIZE - 5),
     ));
 

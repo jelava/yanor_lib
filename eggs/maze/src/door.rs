@@ -5,6 +5,8 @@ use bevy::{
 
 use yanor_core::{activity::*, grid::*, stats::*};
 
+use crate::collision::Collider;
+
 pub struct DoorPlugin;
 
 impl Plugin for DoorPlugin {
@@ -12,7 +14,9 @@ impl Plugin for DoorPlugin {
         app.init_activity::<OpenDoor>()
             .init_activity::<CloseDoor>()
             .add_observer(on_open_door_phase_finish)
-            .add_observer(on_close_door_phase_finish);
+            .add_observer(on_close_door_phase_finish)
+            .add_observer(on_open_door)
+            .add_observer(on_close_door);
     }
 }
 
@@ -182,5 +186,21 @@ fn check_door_adjacency(
     match door_orientation {
         &FacingX => door_offset == IVec3::X,
         &FacingZ => door_offset == IVec3::Z,
+    }
+}
+
+fn on_open_door(trigger: On<Add, Open>, mut commands: Commands, door_query: Query<&Door>) {
+    let target = trigger.event_target();
+
+    if door_query.contains(target) {
+        commands.entity(target).try_remove::<Collider>();
+    }
+}
+
+fn on_close_door(trigger: On<Add, Closed>, mut commands: Commands, door_query: Query<&Door>) {
+    let target = trigger.event_target();
+
+    if door_query.contains(target) {
+        commands.entity(target).insert(Collider);
     }
 }
