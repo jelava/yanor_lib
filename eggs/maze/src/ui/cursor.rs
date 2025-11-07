@@ -7,16 +7,26 @@ use yanor_core::{
     tick::TickState,
 };
 
-use crate::{Block, collision::Collider, player::Player, presentation::AssetHandles, step::Step};
+use crate::{
+    Block,
+    collision::Collider,
+    player::Player,
+    presentation::AssetHandles,
+    step::Step,
+    ui::*
+};
 
 pub struct CursorPlugin;
 
 impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostStartup, spawn_cursor).add_systems(
-            Update,
-            (cursor_movement_controls, cursor_interact).run_if(in_state(TickState::PreTick)),
-        );
+        app
+            .add_systems(PostStartup, spawn_cursor)
+            .add_systems(
+                Update,
+                (cursor_movement_controls, cursor_interact).run_if(in_state(TickState::PreTick)
+            ))
+            .add_systems(OnEnter(TickState::PreTick), update_cursor_selection_list);
     }
 }
 
@@ -35,7 +45,44 @@ fn spawn_cursor(
         Transform::from_translation((**player_pos).into()),
         Mesh3d(asset_handles.block_mesh_handle.clone()),
         MeshMaterial3d(asset_handles.cursor_material_handle.clone()),
-    ));
+    )).observe(update_cursor_selection_list_on_move);
+}
+
+fn update_cursor_selection_list(
+    mut commands: Commands,
+    grid_index: Res<SparseGridIndex>,
+    cursor_pos: Single<&GridPos, With<Cursor>>,
+    selection_list_entity: Single<Entity, With<CursorSelectionList>>,
+    preview_info_query: Query<&UiPreviewKind>,
+) {
+    info!("update cursor list");
+
+    commands
+        .entity(*selection_list_entity)
+        .despawn_children();
+
+    if let Some(entities) = grid_index.get(*cursor_pos) {
+        commands
+            .entity(*selection_list_entity)
+            .with_children(|preview_list| {
+                for &entity in entities {
+                    if let Ok(preview_kind) = preview_info_query.get(entity) {
+                        preview_list.spawn(preview_kind.into_bundle());
+                    }
+                }
+            });
+    }
+}
+
+fn update_cursor_selection_list_on_move(
+    _trigger: On<Insert, GridPos>,
+    commands: Commands,
+    grid_index: Res<SparseGridIndex>,
+    cursor_pos: Single<&GridPos, With<Cursor>>,
+    selection_list_entity: Single<Entity, With<CursorSelectionList>>,
+    preview_info_query: Query<&UiPreviewKind>,
+) {
+    update_cursor_selection_list(commands, grid_index, cursor_pos, selection_list_entity, preview_info_query);
 }
 
 fn cursor_movement_controls(
@@ -65,9 +112,7 @@ fn cursor_movement_controls(
     }
 
     let new_pos: GridPos = cursor_pos + move_dir;
-
     commands.entity(cursor).insert(new_pos);
-
     transform.translation = new_pos.into();
 }
 

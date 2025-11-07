@@ -45,7 +45,7 @@ fn main() {
         .add_plugins((
             // bevy plugins
             DefaultPlugins.set(ImagePlugin::default_nearest()),
-            // FpsOverlayPlugin::default(),
+            FpsOverlayPlugin::default(),
             MeshPickingPlugin,
         ))
         .add_plugins((
@@ -153,11 +153,22 @@ fn spawn_stuff(mut commands: Commands) {
             (CLOSE_DOOR_DURATION_STAT_ID, 1u32),
         ]),
         Inventory::default(),
+        UiPreviewKind::Player,
     ));
 
-    commands.spawn((Potion, GridPos::new(14, 1, 14)));
-
     let mid_x = MAZE_SIZE / 2;
+
+    for x in (mid_x - 5)..(mid_x + 5) {
+        commands.spawn((
+            Potion,
+            GridPos::new(x, 1, 14),
+            UiPreviewKind::Potion,
+        ));
+    }
+
+    // add_on(EntityEvent)
+    // on
+
     // commands.spawn((Goal, GridPos::new(mid_x, 1, MAZE_SIZE - 1)));
 
     commands.spawn((
@@ -165,6 +176,7 @@ fn spawn_stuff(mut commands: Commands) {
         DoorOrientation::FacingZ,
         Closed,
         GridPos::new(mid_x, 1, MAZE_SIZE - 5),
+        UiPreviewKind::Door,
     ));
 
     commands.spawn((
@@ -172,24 +184,25 @@ fn spawn_stuff(mut commands: Commands) {
         DoorOrientation::FacingX,
         Open,
         GridPos::new(mid_x + 2, 1, MAZE_SIZE - 4),
+        UiPreviewKind::Door,
     ));
 
     // walls beside doors
-    commands.spawn((Block, GridPos::new(mid_x - 1, 1, MAZE_SIZE - 5)));
-    commands.spawn((Block, GridPos::new(mid_x + 1, 1, MAZE_SIZE - 5)));
-    commands.spawn((Block, GridPos::new(mid_x + 2, 1, MAZE_SIZE - 5)));
-    commands.spawn((Block, GridPos::new(mid_x + 2, 1, MAZE_SIZE - 3)));
+    commands.spawn((Block, GridPos::new(mid_x - 1, 1, MAZE_SIZE - 5), UiPreviewKind::Block));
+    commands.spawn((Block, GridPos::new(mid_x + 1, 1, MAZE_SIZE - 5), UiPreviewKind::Block));
+    commands.spawn((Block, GridPos::new(mid_x + 2, 1, MAZE_SIZE - 5), UiPreviewKind::Block));
+    commands.spawn((Block, GridPos::new(mid_x + 2, 1, MAZE_SIZE - 3), UiPreviewKind::Block));
 
     for x in 0..MAZE_SIZE {
         for z in 0..MAZE_SIZE {
-            commands.spawn((Block, GridPos(IVec3::new(x, 0, z))));
+            commands.spawn((Block, GridPos(IVec3::new(x, 0, z)), UiPreviewKind::Block));
             // .observe(on_block_hover);
         }
     }
 }
 
 fn count_ticks(mut stopwatch: Local<TickStopwatch>, mut counter: ResMut<TickPhaseCounter>) {
-    // info!("=== tick {} ===", stopwatch.elapsed_ticks());
+    info!("=== tick {} ===", stopwatch.elapsed_ticks());
     stopwatch.tick(1);
 
     // info!(
