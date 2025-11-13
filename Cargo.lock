@@ -4253,6 +4253,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mesh_test"
+version = "0.1.0"
+dependencies = [
+ "bevy 0.17.2",
+]
+
+[[package]]
 name = "metal"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

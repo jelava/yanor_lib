@@ -1,7 +1,14 @@
 /// Traits for Resources that help with looking up entities by component value
 use std::{hash::Hash, marker::PhantomData};
 
-use bevy::{ecs::entity::EntityHashSet, platform::collections::HashMap, prelude::*};
+use bevy::{
+    ecs::{
+        entity::EntityHashSet,
+        query::{QueryData, QueryFilter},
+    },
+    platform::collections::HashMap,
+    prelude::*,
+};
 
 pub trait ComponentIndex: Resource {
     type Cmp: Component + Copy + Clone;
@@ -10,6 +17,28 @@ pub trait ComponentIndex: Resource {
     fn contains(&self, component: &Self::Cmp) -> bool;
     fn insert(&mut self, component: Self::Cmp, entity: Entity);
     fn remove(&mut self, component: &Self::Cmp, entity: Entity);
+
+    // TODO: is there a more efficient way to do this?
+    // also TODO: get the actual matching component 
+    /// Given a particular value of the indexed component, return the set of all entities with that
+    /// component value that are also contained within a query.
+    fn get_from_query<D: QueryData, F: QueryFilter>(&self, component: &Self::Cmp, query: Query<D, F>) -> Option<EntityHashSet> {
+        if let Some(entities) = self.get(component) {
+            Some(
+                entities
+                    .iter()
+                    .filter_map(|&entity| {
+                        match query.contains(entity) {
+                            true => Some(entity),
+                            false => None,
+                        }
+                    })
+                    .collect()
+            )
+        } else {
+            None
+        }
+    }
 }
 
 /// Useful for keeping track of locations of things that are scattered across a wide area with no extra

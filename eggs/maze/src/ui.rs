@@ -7,8 +7,7 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<Theme>()
+        app.init_resource::<Theme>()
             .add_systems(Startup, spawn_left_sidebar);
     }
 }
@@ -131,33 +130,32 @@ fn spawn_left_sidebar(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ));
                 });
 
-            left_sidebar
-                .spawn((
-                    CursorSelectionList,
-                    Node {
-                        min_width: Val::Px(200.0),
-                        width: Val::Percent(100.0),
-                        // height: Val::Percent(100.0),
-                        border: UiRect::all(Val::Px(2.0)),
-                        padding: UiRect::all(Val::Px(2.0)),
-                        flex_direction: FlexDirection::Column,
-                        flex_grow: 1.0,
-                        overflow: Overflow::scroll_y(),
-                        ..default()
-                    },
-                    BackgroundColor(BACKGROUND_COLOR),
-                    BorderColor::all(NESTED_BORDER_COLOR),
-                ));
-                // .with_children(|log_box| {
-                //     log_box.spawn((
-                //         Text::new("{log output will go here}"),
-                //         TextColor(TEXT_COLOR),
-                //         TextFont {
-                //             font_size: 16.0,
-                //             ..default()
-                //         },
-                //     ));
-                // });
+            left_sidebar.spawn((
+                CursorSelectionList,
+                Node {
+                    min_width: Val::Px(200.0),
+                    width: Val::Percent(100.0),
+                    // height: Val::Percent(100.0),
+                    border: UiRect::all(Val::Px(2.0)),
+                    padding: UiRect::all(Val::Px(2.0)),
+                    flex_direction: FlexDirection::Column,
+                    flex_grow: 1.0,
+                    overflow: Overflow::scroll_y(),
+                    ..default()
+                },
+                BackgroundColor(BACKGROUND_COLOR),
+                BorderColor::all(NESTED_BORDER_COLOR),
+            ));
+            // .with_children(|log_box| {
+            //     log_box.spawn((
+            //         Text::new("{log output will go here}"),
+            //         TextColor(TEXT_COLOR),
+            //         TextFont {
+            //             font_size: 16.0,
+            //             ..default()
+            //         },
+            //     ));
+            // });
         });
 }
 
@@ -179,6 +177,7 @@ pub enum UiPreviewKind {
     Door,
     Player,
     Potion,
+    Stairs,
 }
 
 impl UiPreviewKind {
@@ -190,6 +189,7 @@ impl UiPreviewKind {
             Door => "Door".into(),
             Player => "Player".into(),
             Potion => "Potion".into(),
+            Stairs => "Stairs".into(),
         }
     }
 

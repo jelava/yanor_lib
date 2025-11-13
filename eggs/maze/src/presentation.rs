@@ -8,8 +8,8 @@ use yanor_core::{
 };
 
 use crate::{
-    Block, Door, DoorOrientation, Goal, Player, Potion, door::*, items::*, presentation::camera::*,
-    step::*,
+    Block, Door, Goal, Player, Potion, Stairs, XzPlaneOrientation, door::*, items::*,
+    presentation::camera::*, step::*,
 };
 
 pub struct PresentationPlugin;
@@ -24,6 +24,7 @@ impl Plugin for PresentationPlugin {
             .add_observer(on_add_potion)
             .add_observer(on_add_goal)
             .add_observer(on_add_door)
+            .add_observer(on_add_stairs)
             .add_observer(queue_step_animation)
             .add_observer(queue_door_open_animation)
             .add_observer(queue_door_close_animation)
@@ -34,13 +35,16 @@ impl Plugin for PresentationPlugin {
 #[derive(Resource)]
 pub struct AssetHandles {
     pub block_mesh_handle: Handle<Mesh>,
+    pub cube_mesh_handle: Handle<Mesh>,
     pub door_mesh_handle: Handle<Mesh>,
     pub rect_mesh_handle: Handle<Mesh>,
+    pub stair_mesh_handle: Handle<Mesh>,
     pub block_material_handle: Handle<StandardMaterial>,
     pub door_material_handle: Handle<StandardMaterial>,
     pub cursor_material_handle: Handle<StandardMaterial>,
     pub player_material_handle: Handle<StandardMaterial>,
     pub potion_material_handle: Handle<StandardMaterial>,
+    pub stair_material_handle: Handle<StandardMaterial>,
 }
 
 fn init_asset_handles(
@@ -50,38 +54,63 @@ fn init_asset_handles(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.insert_resource(AssetHandles {
-        block_mesh_handle: meshes.add(Cuboid::default()),
-        door_mesh_handle: meshes.add(Cuboid::new(1.0, 1.0, 0.25)),
+        block_mesh_handle: asset_server.load(
+            GltfAssetLabel::Primitive {
+                mesh: 0,
+                primitive: 0,
+            }
+            .from_asset("meshes/block.glb"),
+        ),
+        cube_mesh_handle: meshes.add(Cuboid::from_length(1.0)),
+        door_mesh_handle: asset_server.load(
+            GltfAssetLabel::Primitive {
+                mesh: 0,
+                primitive: 0,
+            }
+            .from_asset("meshes/door.glb"),
+        ),
         rect_mesh_handle: meshes.add(Rectangle::default()),
+        stair_mesh_handle: asset_server.load(
+            GltfAssetLabel::Primitive {
+                mesh: 0,
+                primitive: 0,
+            }
+            .from_asset("meshes/stairs.glb"),
+        ),
         block_material_handle: materials.add(StandardMaterial {
-            base_color_texture: Some(asset_server.load("block.png")),
+            base_color_texture: Some(asset_server.load("textures/block.png")),
             unlit: true,
             ..default()
         }),
         door_material_handle: materials.add(StandardMaterial {
-            base_color_texture: Some(asset_server.load("door_front_back.png")),
+            base_color_texture: Some(asset_server.load("textures/door.png")),
             unlit: true,
             ..default()
         }),
         cursor_material_handle: materials.add(StandardMaterial {
-            base_color_texture: Some(asset_server.load("highlight.png")),
+            base_color_texture: Some(asset_server.load("textures/highlight.png")),
             unlit: true,
             alpha_mode: AlphaMode::Mask(1.0),
             cull_mode: None,
             ..default()
         }),
         player_material_handle: materials.add(StandardMaterial {
-            base_color_texture: Some(asset_server.load("gobbo.png")),
+            base_color_texture: Some(asset_server.load("textures/gobbo.png")),
             unlit: true,
             alpha_mode: AlphaMode::Mask(1.0),
             cull_mode: None,
             ..default()
         }),
         potion_material_handle: materials.add(StandardMaterial {
-            base_color_texture: Some(asset_server.load("potion.png")),
+            base_color_texture: Some(asset_server.load("textures/potion.png")),
             unlit: true,
             alpha_mode: AlphaMode::Mask(1.0),
             cull_mode: None,
+            ..default()
+        }),
+        stair_material_handle: materials.add(StandardMaterial {
+            base_color_texture: Some(asset_server.load("textures/stairs.png")),
+            unlit: true,
             ..default()
         }),
     });
@@ -179,14 +208,18 @@ fn on_add_door(
     trigger: On<Add, Door>,
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
-    pos_query: Query<(&GridPos, &DoorOrientation, Has<Open>), With<Door>>,
+    pos_query: Query<(&GridPos, &XzPlaneOrientation, Has<Open>), With<Door>>,
 ) {
+    use XzPlaneOrientation::*;
+
     let target = trigger.event_target();
 
     if let Ok((&grid_pos, door_orientation, door_open)) = pos_query.get(target) {
         let (door_dir, door_offset) = match door_orientation {
-            DoorOrientation::FacingZ => (Dir3::Z, 0.5 * Vec3::X),
-            DoorOrientation::FacingX => (Dir3::X, 0.5 * Vec3::Z),
+            FacingZ => (Dir3::Z, 0.5 * Vec3::NEG_X),
+            FacingNegZ => (Dir3::Z, 0.5 * Vec3::NEG_X),
+            FacingX => (Dir3::X, 0.5 * Vec3::Z),
+            FacingNegX => (Dir3::X, 0.5 * Vec3::Z),
         };
 
         let door_angle = match door_open {
@@ -216,7 +249,26 @@ fn on_add_door(
             ))
             .add_child(child);
     } else {
-        warn!("Goal component added to entity without GridPosition, will not be presented");
+        warn!("TODO blah blah blah");
+    }
+}
+
+fn on_add_stairs(
+    trigger: On<Add, Stairs>,
+    mut commands: Commands,
+    asset_handles: Res<AssetHandles>,
+    stair_query: Query<(&GridPos, &XzPlaneOrientation), With<Stairs>>,
+) {
+    let target = trigger.event_target();
+
+    if let Ok((&grid_pos, &orientation)) = stair_query.get(target) {
+        commands.entity(target).insert((
+            Transform::from_translation(grid_pos.into()).looking_to(orientation, Dir3::Y),
+            Mesh3d(asset_handles.stair_mesh_handle.clone()),
+            MeshMaterial3d(asset_handles.stair_material_handle.clone()),
+        ));
+    } else {
+        warn!("TODO blah blah blah");
     }
 }
 

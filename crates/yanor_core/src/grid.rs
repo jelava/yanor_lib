@@ -35,9 +35,9 @@ pub enum AxisDir {
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct GridDir {
-    x: AxisDir,
-    y: AxisDir,
-    z: AxisDir,
+    pub x: AxisDir,
+    pub y: AxisDir,
+    pub z: AxisDir,
 }
 
 impl GridDir {
@@ -121,6 +121,38 @@ impl Add<GridDir> for GridPos {
 
     fn add(self, rhs: GridDir) -> Self::Output {
         Self(self.0 + IVec3::from(rhs))
+    }
+}
+
+#[derive(Component)]
+pub enum CardinalGridDir {
+    X,
+    NegX,
+    Y,
+    NegY,
+    Z,
+    NegZ,
+}
+
+#[derive(Component, Clone, Copy, Default, PartialEq, Eq)]
+pub enum XzPlaneOrientation {
+    #[default]
+    FacingZ,
+    FacingNegZ,
+    FacingX,
+    FacingNegX,
+}
+
+impl From<XzPlaneOrientation> for Dir3 {
+    fn from(orientation: XzPlaneOrientation) -> Self {
+        use XzPlaneOrientation::*;
+
+        match orientation {
+            FacingZ => Dir3::Z,
+            FacingNegZ => Dir3::NEG_Z,
+            FacingX => Dir3::X,
+            FacingNegX => Dir3::NEG_X,
+        }
     }
 }
 

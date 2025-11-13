@@ -19,7 +19,7 @@ pub struct PlayerTracking {
 pub fn spawn_camera(mut commands: Commands) {
     // TODO: don't hardcode this, load from config or something
     // let pos = Vec3::new(12.0, 1.0, 12.0);
-    let offset = Vec3::new(0.0, 6.0, -8.0);
+    let offset = Vec3::new(0.0, 4.0, -6.0);
 
     commands.spawn((
         PresentationCamera,
@@ -31,10 +31,11 @@ pub fn spawn_camera(mut commands: Commands) {
 // TODO: don't use player component here, make more general component to indicate what camera
 // should be tracking (or use relationship?)
 pub fn camera_track_player(
-    mut camera_info: Single<(&mut Transform, &PlayerTracking), With<PresentationCamera>>,
+    camera_info: Single<(&mut Transform, &PlayerTracking), With<PresentationCamera>>,
     player_transform: Single<&Transform, (With<Player>, Without<PresentationCamera>)>,
 ) {
-    camera_info.0.translation = player_transform.translation + camera_info.1.offset;
+    let (mut camera_transform, &PlayerTracking { offset }) = camera_info.into_inner();
+    camera_transform.translation = player_transform.translation + offset;
 }
 
 pub fn update_billboard_transforms(

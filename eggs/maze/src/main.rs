@@ -20,7 +20,7 @@ use yanor_core::{
 };
 
 use crate::{
-    collision::Collider,
+    collision::*,
     door::*,
     items::*,
     player::*,
@@ -115,7 +115,13 @@ fn main() {
 }
 
 #[derive(Component)]
-#[require(Collider, GridPos)]
+#[require(
+    GridPos,
+    Collider {
+        traversable: true,
+        ..default()
+    }
+)]
 struct Block;
 
 #[derive(Component)]
@@ -126,23 +132,25 @@ struct Potion;
 #[require(GridPos)]
 struct Goal;
 
-// #[derive(Component)]
-// struct OverlapSensor<F: QueryFilter>;
+#[derive(Component)]
+#[require(
+    GridPos,
+    XzPlaneOrientation,
+    Collider {
+        shape: ColliderShape::Slope,
+        traversable: true,
+    },
+)]
+struct Stairs;
 
 const MAZE_SIZE: i32 = 24;
 
 fn spawn_stuff(mut commands: Commands) {
-    let player_pos = Vec3::new(12.0, 1.0, 12.0);
-
     commands.spawn((
         Player,
         InputController { queue_priority: 0 },
         // RandomStepController,
-        GridPos::new(
-            player_pos.x as i32,
-            player_pos.y as i32,
-            player_pos.z as i32,
-        ),
+        GridPos::new(12, 1, 12),
         StatBlock::new(&[
             (MOVE_DURATION_STAT_ID, 1u32),
             (GRAB_ITEM_DURATION_STAT_ID, 1u32),
@@ -153,27 +161,20 @@ fn spawn_stuff(mut commands: Commands) {
             (CLOSE_DOOR_DURATION_STAT_ID, 1u32),
         ]),
         Inventory::default(),
-        UiPreviewKind::Player,
+        UiPreviewKind::Player, // TODO: decouple
     ));
 
     let mid_x = MAZE_SIZE / 2;
 
     for x in (mid_x - 5)..(mid_x + 5) {
-        commands.spawn((
-            Potion,
-            GridPos::new(x, 1, 14),
-            UiPreviewKind::Potion,
-        ));
+        commands.spawn((Potion, GridPos::new(x, 1, 14), UiPreviewKind::Potion));
     }
-
-    // add_on(EntityEvent)
-    // on
 
     // commands.spawn((Goal, GridPos::new(mid_x, 1, MAZE_SIZE - 1)));
 
     commands.spawn((
         Door,
-        DoorOrientation::FacingZ,
+        XzPlaneOrientation::FacingZ,
         Closed,
         GridPos::new(mid_x, 1, MAZE_SIZE - 5),
         UiPreviewKind::Door,
@@ -181,22 +182,71 @@ fn spawn_stuff(mut commands: Commands) {
 
     commands.spawn((
         Door,
-        DoorOrientation::FacingX,
+        XzPlaneOrientation::FacingX,
         Open,
         GridPos::new(mid_x + 2, 1, MAZE_SIZE - 4),
         UiPreviewKind::Door,
     ));
 
     // walls beside doors
-    commands.spawn((Block, GridPos::new(mid_x - 1, 1, MAZE_SIZE - 5), UiPreviewKind::Block));
-    commands.spawn((Block, GridPos::new(mid_x + 1, 1, MAZE_SIZE - 5), UiPreviewKind::Block));
-    commands.spawn((Block, GridPos::new(mid_x + 2, 1, MAZE_SIZE - 5), UiPreviewKind::Block));
-    commands.spawn((Block, GridPos::new(mid_x + 2, 1, MAZE_SIZE - 3), UiPreviewKind::Block));
+    commands.spawn((
+        Block,
+        GridPos::new(mid_x - 1, 1, MAZE_SIZE - 5),
+        UiPreviewKind::Block,
+    ));
+    commands.spawn((
+        Block,
+        GridPos::new(mid_x + 1, 1, MAZE_SIZE - 5),
+        UiPreviewKind::Block,
+    ));
+    commands.spawn((
+        Block,
+        GridPos::new(mid_x + 2, 1, MAZE_SIZE - 5),
+        UiPreviewKind::Block,
+    ));
+    commands.spawn((
+        Block,
+        GridPos::new(mid_x + 2, 1, MAZE_SIZE - 3),
+        UiPreviewKind::Block,
+    ));
+
+    commands.spawn((
+        Block,
+        GridPos::new(mid_x + 4, 1, MAZE_SIZE - 7),
+        UiPreviewKind::Block,
+    ));
+
+    commands.spawn((
+        Stairs,
+        GridPos::new(mid_x + 4, 1, MAZE_SIZE - 8),
+        XzPlaneOrientation::FacingZ,
+        UiPreviewKind::Stairs,
+    ));
+
+    commands.spawn((
+        Stairs,
+        GridPos::new(mid_x + 4, 1, MAZE_SIZE - 6),
+        XzPlaneOrientation::FacingNegZ,
+        UiPreviewKind::Stairs,
+    ));
+
+    commands.spawn((
+        Stairs,
+        GridPos::new(mid_x + 3, 1, MAZE_SIZE - 7),
+        XzPlaneOrientation::FacingX,
+        UiPreviewKind::Stairs,
+    ));
+
+    commands.spawn((
+        Stairs,
+        GridPos::new(mid_x + 5, 1, MAZE_SIZE - 7),
+        XzPlaneOrientation::FacingNegX,
+        UiPreviewKind::Stairs,
+    ));
 
     for x in 0..MAZE_SIZE {
         for z in 0..MAZE_SIZE {
             commands.spawn((Block, GridPos(IVec3::new(x, 0, z)), UiPreviewKind::Block));
-            // .observe(on_block_hover);
         }
     }
 }

@@ -26,44 +26,6 @@ pub struct Player;
 #[derive(Component)]
 pub struct Name(String);
 
-// fn process_movement_inputs(
-//     mut commands: Commands,
-//     keyboard_input: Res<ButtonInput<KeyCode>>,
-//     grid_index: Res<SparseGridIndex>,
-//     active_input_controller_query: Single<
-//         (Entity, &GridPos),
-//         (With<ActiveInputController>, With<Inactive>),
-//     >,
-//     mut step_latency_stopwatch: ResMut<StepLatencyStopwatch>,
-// ) {
-//     use AxisDir::*;
-
-//     let (entity, &pos) = *active_input_controller_query;
-//     let mut entity_commands = commands.entity(entity);
-
-//     let direction;
-
-//     if keyboard_input.just_pressed(KeyCode::ArrowUp) {
-//         direction = GridDir::new(Zero, Zero, Plus);
-//     } else if keyboard_input.just_pressed(KeyCode::ArrowDown) {
-//         direction = GridDir::new(Zero, Zero, Minus);
-//     } else if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
-//         direction = GridDir::new(Plus, Zero, Zero);
-//     } else if keyboard_input.just_pressed(KeyCode::ArrowRight) {
-//         direction = GridDir::new(Minus, Zero, Zero);
-//     } else {
-//         return;
-//     }
-
-//     // if !grid_index.contains(&(pos + direction)) { // TODO: also check if there is something below to stand on!
-//     entity_commands.insert(Active(Step(direction)));
-//     // } else {
-//     // todo!("give some kind of feedback indicating that the player can't move there");
-//     // }
-
-//     step_latency_stopwatch.0.unpause();
-// }
-
 // TODO: break this up into a multi-stage input (i.e. 1st input = choose activity, 2nd input = choose which item to get/drop)
 fn process_item_inputs(
     mut commands: Commands,
@@ -136,9 +98,9 @@ fn process_door_inputs(
         (Entity, &GridPos),
         (With<ActiveInputController>, With<Inactive>),
     >,
-    door_query: Query<(&DoorOrientation, Has<Open>), With<Door>>,
+    door_query: Query<(&XzPlaneOrientation, Has<Open>), With<Door>>,
 ) {
-    use DoorOrientation::*;
+    use XzPlaneOrientation::*;
 
     let (active_entity, &active_pos) = *active_input_controller_pos;
 
@@ -148,7 +110,7 @@ fn process_door_inputs(
         if let Some(entities) = grid_index.get(&(active_pos + GridDir::X)) {
             for &entity in entities {
                 if let Ok((door_orientation, door_open)) = door_query.get(entity) {
-                    if door_orientation == &FacingX {
+                    if door_orientation == &FacingX || door_orientation == &FacingNegX {
                         if door_open {
                             commands
                                 .entity(active_entity)
@@ -168,7 +130,7 @@ fn process_door_inputs(
         if let Some(entities) = grid_index.get(&(active_pos + GridDir::NEG_X)) {
             for &entity in entities {
                 if let Ok((door_orientation, door_open)) = door_query.get(entity) {
-                    if door_orientation == &FacingX {
+                    if door_orientation == &FacingX || door_orientation == &FacingNegX {
                         if door_open {
                             commands
                                 .entity(active_entity)
@@ -188,7 +150,7 @@ fn process_door_inputs(
         if let Some(entities) = grid_index.get(&(active_pos + GridDir::Z)) {
             for &entity in entities {
                 if let Ok((door_orientation, door_open)) = door_query.get(entity) {
-                    if door_orientation == &FacingZ {
+                    if door_orientation == &FacingZ || door_orientation == &FacingNegZ {
                         if door_open {
                             commands
                                 .entity(active_entity)
@@ -208,7 +170,7 @@ fn process_door_inputs(
         if let Some(entities) = grid_index.get(&(active_pos + GridDir::NEG_Z)) {
             for &entity in entities {
                 if let Ok((door_orientation, door_open)) = door_query.get(entity) {
-                    if door_orientation == &FacingZ {
+                    if door_orientation == &FacingZ || door_orientation == &FacingNegZ {
                         if door_open {
                             commands
                                 .entity(active_entity)
