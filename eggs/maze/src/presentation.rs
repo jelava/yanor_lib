@@ -1,6 +1,9 @@
 pub mod camera;
 
-use bevy::prelude::*;
+use bevy::{
+    ecs::query::{QueryData, ROQueryItem},
+    prelude::*,
+};
 use yanor_core::{
     activity::FinishActivityPhase,
     animate_tick::{AnimationQueue, PendingAnimation},
@@ -19,12 +22,12 @@ impl Plugin for PresentationPlugin {
         app.add_systems(PreStartup, init_asset_handles)
             .add_systems(Startup, spawn_camera)
             .add_systems(Update, (camera_track_player, update_billboard_transforms))
-            .add_observer(on_add_block)
-            .add_observer(on_add_player)
-            .add_observer(on_add_potion)
-            .add_observer(on_add_goal)
-            .add_observer(on_add_door)
-            .add_observer(on_add_stairs)
+            .add_observer(Block::on_add_presentable)
+            .add_observer(Door::on_add_presentable)
+            .add_observer(Goal::on_add_presentable)
+            .add_observer(Player::on_add_presentable)
+            .add_observer(Potion::on_add_presentable)
+            .add_observer(Stairs::on_add_presentable)
             .add_observer(queue_step_animation)
             .add_observer(queue_door_open_animation)
             .add_observer(queue_door_close_animation)
@@ -32,6 +35,7 @@ impl Plugin for PresentationPlugin {
     }
 }
 
+// TODO: this is a rather messy and simplistic way to handle handles
 #[derive(Resource)]
 pub struct AssetHandles {
     pub block_mesh_handle: Handle<Mesh>,
@@ -116,105 +120,128 @@ fn init_asset_handles(
     });
 }
 
-fn on_add_block(
-    trigger: On<Add, Block>,
-    mut commands: Commands,
-    asset_handles: Res<AssetHandles>,
-    pos_query: Query<&GridPos, With<Block>>,
-) {
-    let target = trigger.event_target();
+trait IntoPresentableBundle: Component + Sized {
+    type Data: QueryData;
+    // type Filter: QueryFilter;
 
-    if let Ok(&grid_pos) = pos_query.get(target) {
-        commands.entity(target).insert((
-            Transform::from_translation(grid_pos.into()),
-            Mesh3d(asset_handles.block_mesh_handle.clone()),
-            MeshMaterial3d(asset_handles.block_material_handle.clone()),
-        ));
-    } else {
-        warn!("Block component added to entity without GridPosition, will not be presented");
+    // TODO: don't rely directly on AssetHandles?
+    fn into_presentable_bundle(
+        asset_handles: Res<AssetHandles>,
+        data: ROQueryItem<Self::Data>,
+    ) -> impl Bundle;
+
+    fn on_add_presentable(
+        trigger: On<Add, Self>,
+        mut commands: Commands,
+        asset_handles: Res<AssetHandles>,
+        query: Query<Self::Data, With<Self>>,
+    ) {
+        let target = trigger.event_target();
+
+        if let Ok(data) = query.get(target) {
+            commands
+                .entity(target)
+                .insert(Self::into_presentable_bundle(asset_handles, data));
+        } else {
+            warn!("Couldn't find Presentable data in query");
+        }
     }
 }
 
-fn on_add_player(
-    trigger: On<Add, Player>,
-    mut commands: Commands,
-    asset_handles: Res<AssetHandles>,
-    pos_query: Query<&GridPos, With<Player>>,
-) {
-    let target = trigger.event_target();
+impl IntoPresentableBundle for Block {
+    // static???
+    type Data = &'static GridPos;
+    // type Filter = With<Self>;
 
-    if let Ok(&grid_pos) = pos_query.get(target) {
-        commands.entity(target).insert((
+    fn into_presentable_bundle(
+        asset_handles: Res<AssetHandles>,
+        data: ROQueryItem<Self::Data>,
+    ) -> impl Bundle {
+        let grid_pos = *data;
+
+        (
+            Transform::from_translation(grid_pos.into()),
+            Mesh3d(asset_handles.block_mesh_handle.clone()),
+            MeshMaterial3d(asset_handles.block_material_handle.clone()),
+        )
+    }
+}
+
+impl IntoPresentableBundle for Player {
+    type Data = &'static GridPos;
+
+    fn into_presentable_bundle(
+        asset_handles: Res<AssetHandles>,
+        data: ROQueryItem<Self::Data>,
+    ) -> impl Bundle {
+        let grid_pos = *data;
+
+        (
             Billboard,
             Transform::from_translation(grid_pos.into()),
             Mesh3d(asset_handles.rect_mesh_handle.clone()),
             MeshMaterial3d(asset_handles.player_material_handle.clone()),
-        ));
-    } else {
-        warn!("Player component added to entity without GridPosition, will not be presented");
+        )
     }
 }
 
-fn on_add_potion(
-    trigger: On<Add, Potion>,
-    mut commands: Commands,
-    asset_handles: Res<AssetHandles>,
-    pos_query: Query<&GridPos, With<Potion>>,
-) {
-    let target = trigger.event_target();
+impl IntoPresentableBundle for Potion {
+    type Data = Option<&'static GridPos>;
 
-    if let Ok(&grid_pos) = pos_query.get(target) {
-        commands.entity(target).insert((
-            Billboard,
-            Transform::from_translation(grid_pos.into()),
-            Mesh3d(asset_handles.rect_mesh_handle.clone()),
-            MeshMaterial3d(asset_handles.potion_material_handle.clone()),
-        ));
-    } else {
-        // If the item has no GridPosition it is probably spawning into an inventory, so set up the
-        // presentation components and a temporary transform but make it not visible
-        commands.entity(target).insert((
-            Visibility::Hidden,
-            Billboard,
-            Transform::from_translation(Vec3::ZERO),
-            Mesh3d(asset_handles.rect_mesh_handle.clone()),
-            MeshMaterial3d(asset_handles.potion_material_handle.clone()),
-        ));
+    fn into_presentable_bundle(
+        asset_handles: Res<AssetHandles>,
+        data: ROQueryItem<Self::Data>,
+    ) -> impl Bundle {
+        if let Some(&grid_pos) = data {
+            (
+                Visibility::Inherited,
+                Billboard,
+                Transform::from_translation(grid_pos.into()),
+                Mesh3d(asset_handles.rect_mesh_handle.clone()),
+                MeshMaterial3d(asset_handles.potion_material_handle.clone()),
+            )
+        } else {
+            // If the item has no GridPosition it is probably spawning into an inventory, so set up the
+            // presentation components and a temporary transform but make it not visible
+            (
+                Visibility::Hidden,
+                Billboard,
+                Transform::from_translation(Vec3::ZERO),
+                Mesh3d(asset_handles.rect_mesh_handle.clone()),
+                MeshMaterial3d(asset_handles.potion_material_handle.clone()),
+            )
+        }
     }
 }
 
-fn on_add_goal(
-    trigger: On<Add, Goal>,
-    mut commands: Commands,
-    asset_handles: Res<AssetHandles>,
-    pos_query: Query<&GridPos, With<Goal>>,
-) {
-    let target = trigger.event_target();
+impl IntoPresentableBundle for Goal {
+    type Data = &'static GridPos;
 
-    if let Ok(&grid_pos) = pos_query.get(target) {
-        commands.entity(target).insert((
+    fn into_presentable_bundle(
+        asset_handles: Res<AssetHandles>,
+        data: ROQueryItem<Self::Data>,
+    ) -> impl Bundle {
+        let grid_pos = *data;
+
+        (
             Transform::from_translation(grid_pos.into()),
             Mesh3d(asset_handles.block_mesh_handle.clone()),
             MeshMaterial3d(asset_handles.cursor_material_handle.clone()),
-        ));
-    } else {
-        warn!("Goal component added to entity without GridPosition, will not be presented");
+        )
     }
 }
 
-// const DOOR_OFFSET: Vec3 = Vec3::new(0.5, 0.0, 0.0);
+impl IntoPresentableBundle for Door {
+    type Data = (&'static GridPos, &'static XzPlaneOrientation, Has<Open>);
 
-fn on_add_door(
-    trigger: On<Add, Door>,
-    mut commands: Commands,
-    asset_handles: Res<AssetHandles>,
-    pos_query: Query<(&GridPos, &XzPlaneOrientation, Has<Open>), With<Door>>,
-) {
-    use XzPlaneOrientation::*;
+    fn into_presentable_bundle(
+        asset_handles: Res<AssetHandles>,
+        data: ROQueryItem<Self::Data>,
+    ) -> impl Bundle {
+        use XzPlaneOrientation::*;
 
-    let target = trigger.event_target();
+        let (&grid_pos, door_orientation, door_open) = data;
 
-    if let Ok((&grid_pos, door_orientation, door_open)) = pos_query.get(target) {
         let (door_dir, door_offset) = match door_orientation {
             FacingZ => (Dir3::Z, 0.5 * Vec3::NEG_X),
             FacingNegZ => (Dir3::Z, 0.5 * Vec3::NEG_X),
@@ -227,85 +254,39 @@ fn on_add_door(
             false => 0.0,
         };
 
-        // warn!("TODO: change initial rotation of door based on whether it's open/closed");
+        let pos: Vec3 = grid_pos.into();
 
-        let child = commands
-            .spawn((
+        (
+            Transform::from_translation(pos - door_offset)
+                .with_rotation(Quat::from_rotation_y(door_angle)),
+            Visibility::default(),
+            children![(
                 Transform::from_translation(door_offset).looking_to(door_dir, Dir3::Y),
                 Mesh3d(asset_handles.door_mesh_handle.clone()),
                 MeshMaterial3d(asset_handles.door_material_handle.clone()),
-            ))
-            .id();
-
-        let pos: Vec3 = grid_pos.into();
-
-        commands
-            .entity(target)
-            .insert((
-                Transform::from_translation(pos - door_offset)
-                    .with_rotation(Quat::from_rotation_y(door_angle)),
-                // Mesh3d(asset_handles.door_mesh_handle.clone()),
-                // MeshMaterial3d(asset_handles.door_material_handle.clone()),
-            ))
-            .add_child(child);
-    } else {
-        warn!("TODO blah blah blah");
+            )],
+        )
     }
 }
 
-fn on_add_stairs(
-    trigger: On<Add, Stairs>,
-    mut commands: Commands,
-    asset_handles: Res<AssetHandles>,
-    stair_query: Query<(&GridPos, &XzPlaneOrientation), With<Stairs>>,
-) {
-    let target = trigger.event_target();
+impl IntoPresentableBundle for Stairs {
+    type Data = (&'static GridPos, &'static XzPlaneOrientation);
 
-    if let Ok((&grid_pos, &orientation)) = stair_query.get(target) {
-        commands.entity(target).insert((
+    fn into_presentable_bundle(
+        asset_handles: Res<AssetHandles>,
+        data: ROQueryItem<Self::Data>,
+    ) -> impl Bundle {
+        let (&grid_pos, &orientation) = data;
+
+        (
             Transform::from_translation(grid_pos.into()).looking_to(orientation, Dir3::Y),
             Mesh3d(asset_handles.stair_mesh_handle.clone()),
             MeshMaterial3d(asset_handles.stair_material_handle.clone()),
-        ));
-    } else {
-        warn!("TODO blah blah blah");
+        )
     }
 }
 
-// TODO: generalized approach to reduce boilerplate
-// fn on_add_presentable<C: Component>(
-//     trigger: On<Add, C>,
-//     mut commands: Commands,
-//     asset_handles: Res<AssetHandles>,
-//     pos_query: Query<&GridPosition, With<C>>,
-// ) {
-//     let target = trigger.event_target();
-
-//     if let Ok(&grid_pos) = pos_query.get(target) {
-//         commands.entity(target).insert((
-//             Billboard,
-//             Transform::from_translation(grid_pos.into()),
-//             Mesh3d(todo!()),
-//             MeshMaterial3d(todo!()),
-//         ));
-//     } else {
-//         warn!("Can't find GridPosition of presentable");
-//     }
-// }
-
 // TODO: on remove/despawn handlers
-
-// fn on_block_hover(
-//     trigger: Trigger<Pointer<Over>>,
-//     mut cell_highlight_transform: Single<&mut Transform, With<CellHighlight>>,
-//     transform_query: Query<&Transform, (With<Block>, Without<CellHighlight>)>,
-// ) {
-//     if let Ok(&board_transform) = transform_query.get(trigger.target()) {
-//         cell_highlight_transform.translation = board_transform.translation + Vec3::Y;
-//     } else {
-//         warn!("Hovered Block has no Transform");
-//     }
-// }
 
 // For sequential animation, preserving information about the order in which changes within the
 // tick happened is useful, so queuing happens immediately via observer rather than waiting

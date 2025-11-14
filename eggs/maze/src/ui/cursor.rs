@@ -143,10 +143,11 @@ fn cursor_interact(
 
         if let Ok(step_dir) = cursor_offset.try_into() {
             if step_dir != GridDir::ZERO {
-                let cursor_pos_occupied = match grid_index.get_from_query(*cursor_pos, collider_query) {
-                    Some(entities) => !entities.is_empty(),
-                    None => false,
-                };
+                let cursor_pos_occupied =
+                    match grid_index.get_from_query(*cursor_pos, collider_query) {
+                        Some(entities) => !entities.is_empty(),
+                        None => false,
+                    };
 
                 if cursor_pos_occupied {
                     return;
