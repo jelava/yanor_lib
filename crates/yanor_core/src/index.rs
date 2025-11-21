@@ -19,21 +19,23 @@ pub trait ComponentIndex: Resource {
     fn remove(&mut self, component: &Self::Cmp, entity: Entity);
 
     // TODO: is there a more efficient way to do this?
-    // also TODO: get the actual matching component 
+    // also TODO: get the actual matching component
     /// Given a particular value of the indexed component, return the set of all entities with that
     /// component value that are also contained within a query.
-    fn get_from_query<D: QueryData, F: QueryFilter>(&self, component: &Self::Cmp, query: Query<D, F>) -> Option<EntityHashSet> {
+    fn get_from_query<D: QueryData, F: QueryFilter>(
+        &self,
+        component: &Self::Cmp,
+        query: Query<D, F>,
+    ) -> Option<EntityHashSet> {
         if let Some(entities) = self.get(component) {
             Some(
                 entities
                     .iter()
-                    .filter_map(|&entity| {
-                        match query.contains(entity) {
-                            true => Some(entity),
-                            false => None,
-                        }
+                    .filter_map(|&entity| match query.contains(entity) {
+                        true => Some(entity),
+                        false => None,
                     })
-                    .collect()
+                    .collect(),
             )
         } else {
             None

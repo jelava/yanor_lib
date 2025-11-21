@@ -1,3 +1,4 @@
+mod chest;
 mod collision;
 mod door;
 mod items;

@@ -51,7 +51,7 @@ pub struct Open;
 pub struct Closed;
 
 #[derive(Component)]
-#[require(XzPlaneOrientation, GridPos)]
+#[require(GridPos, XzPlaneOrientation)]
 pub struct Door;
 
 pub struct OpenDoor(pub Entity);
