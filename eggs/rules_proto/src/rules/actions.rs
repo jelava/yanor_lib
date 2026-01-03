@@ -33,12 +33,12 @@ pub(super) fn act<const N: usize>(
             && ruleset.points[condition_index][action_index] > 0
         {
             commands.entity(entity).try_remove::<FallbackNeeded>();
-            // info!("{entity} do action {N}");
+            info!("{entity} do action {N}");
 
-            actor.energy -= 100; // TODO: non-hardcoded energy cost
+            actor.energy -= 50; // TODO: non-hardcoded energy cost
 
             if actor.energy <= 0 {
-                // info!("{entity} out of energy");
+                info!("{entity} out of energy");
                 commands.entity(entity).remove::<Energized>();
             }
 
@@ -46,7 +46,7 @@ pub(super) fn act<const N: usize>(
 
             let total_points: usize = ruleset.points.iter().flatten().sum();
 
-            // info!("{entity} has {total_points} points left");
+            info!("{entity} has {total_points} points left");
 
             if total_points == 0 {
                 info!("{entity} out of ruleset points");
@@ -64,12 +64,12 @@ pub(super) fn fallback<const N: usize>(
     >,
 ) {
     for (entity, _fallback, mut actor) in &mut fallback_query {
-        // info!("{entity} do fallback {N}");
+        info!("{entity} do fallback {N}");
 
-        actor.energy -= 25; // TODO: non-hardcoded energy cost
+        actor.energy -= 50; // TODO: non-hardcoded energy cost
 
         if actor.energy <= 0 {
-            // info!("{entity} out of energy");
+            info!("{entity} out of energy");
             commands.entity(entity).remove::<Energized>();
         }
     }

@@ -1,36 +1,42 @@
 pub(crate) mod actions;
-pub(crate) mod checks;
+pub(crate) mod conditions;
 
 use bevy::prelude::*;
 
-use {actions::*, checks::*};
+use {actions::*, conditions::*};
 
 pub(super) struct RulesPlugin;
 
 impl Plugin for RulesPlugin {
     fn build(&self, app: &mut App) {
+        // use RulesetSystems::*;
+
         // TODO: expose checks, actions, maybe more as system sets
         app.init_resource::<RulesetExecutionStatus>()
             .init_resource::<TurnCounter>()
             .add_systems(
-                PreUpdate,
-                (check::<2>, check::<3>, check::<5>, check::<7>).run_if(new_condition_starting),
-            )
-            .add_systems(Update, (act::<2>, act::<3>))
-            .add_systems(
-                PostUpdate,
+                Update,
                 (
-                    next_rule_step,
-                    (fallback::<0>, fallback::<1>).run_if(new_condition_starting),
-                    (increment_energy, next_turn)
-                        .chain()
-                        .run_if(all_out_of_energy),
-                    check_apocalypse,
-                )
-                    .chain(),
+                    (next_turn, increment_energy).run_if(all_out_of_energy),
+                    (check::<2>, check::<3>, check::<5>, check::<7>).run_if(new_condition_starting),
+                    (act::<2>, act::<3>),
+                    (next_rule_step, check_apocalypse),
+                    (fallback::<0>, fallback::<1>).run_if(new_loop_starting),
+                ).chain()
             );
     }
 }
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum RulesetSystems {
+    BeginTurn,
+    CheckConditions,
+    DoActions,
+    PostActions,
+    DoFallbacks,
+    // PostFallbacks,
+}
+
 
 #[derive(Resource, Default)]
 pub(crate) struct RulesetExecutionStatus {
@@ -40,6 +46,16 @@ pub(crate) struct RulesetExecutionStatus {
 
 #[derive(Resource, Default)]
 pub(crate) struct TurnCounter(pub(crate) usize);
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct ConditionSystemSet;
+
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct ActionSystemSet;
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct FallbackSystemSet;
 
 #[derive(Component)]
 pub(crate) struct Actor {
@@ -62,13 +78,33 @@ pub(crate) struct ConditionMatched;
 #[derive(Component)]
 pub(crate) struct FallbackNeeded;
 
+fn next_turn(
+    // mut next_turn_state: ResMut<NextState<TurnState>>,
+    mut turn_counter: ResMut<TurnCounter>,
+) {
+    turn_counter.0 += 1;
+    info!("===== begin turn {} =====", turn_counter.0);
+}
+
+fn increment_energy(mut commands: Commands, mut actor_query: Query<(Entity, &mut Actor)>) {
+    for (entity, mut actor) in &mut actor_query {
+        actor.energy = isize::min(actor.energy + actor.speed, actor.max_energy);
+
+        if actor.energy > 0 {
+            commands.entity(entity).insert(Energized);
+        }
+    }
+}
+
+fn all_out_of_energy(energy_query: Query<&Energized>) -> bool {
+    energy_query.is_empty()
+}
+
 fn next_rule_step(
     // mut next_turn_state: ResMut<NextState<TurnState>>,
     mut rule_exec_status: ResMut<RulesetExecutionStatus>,
     ruleset_query: Query<&Ruleset, With<Energized>>,
 ) {
-    // info!("=====");
-
     let actions_not_finished = ruleset_query
         .iter()
         .any(|ruleset| rule_exec_status.action_index < ruleset.points[0].len() - 1);
@@ -90,30 +126,7 @@ fn next_rule_step(
         }
     }
 
-    // info!("beginning rule {} action {}", rule_exec_status.condition_index, rule_exec_status.action_index);
-}
-
-fn all_out_of_energy(energy_query: Query<&Energized>) -> bool {
-    energy_query.is_empty()
-}
-
-fn next_turn(
-    // mut next_turn_state: ResMut<NextState<TurnState>>,
-    mut turn_counter: ResMut<TurnCounter>,
-) {
-    turn_counter.0 += 1;
-    info!("===== begin turn {} =====", turn_counter.0);
-    // next_turn_state.set(TurnState::CheckConditions);
-}
-
-fn increment_energy(mut commands: Commands, mut actor_query: Query<(Entity, &mut Actor)>) {
-    for (entity, mut actor) in &mut actor_query {
-        actor.energy = isize::min(actor.energy + actor.speed, actor.max_energy);
-
-        if actor.energy > 0 {
-            commands.entity(entity).insert(Energized);
-        }
-    }
+    info!("beginning rule {} action {}", rule_exec_status.condition_index, rule_exec_status.action_index);
 }
 
 fn check_apocalypse(mut app_exit: MessageWriter<AppExit>, ruleset_query: Query<&Ruleset>) {
@@ -121,4 +134,13 @@ fn check_apocalypse(mut app_exit: MessageWriter<AppExit>, ruleset_query: Query<&
         info!("everyone is dead...");
         app_exit.write(AppExit::Success);
     }
+}
+
+fn new_condition_starting(rule_exec_status: Res<RulesetExecutionStatus>) -> bool {
+    rule_exec_status.action_index == 0
+}
+
+fn new_loop_starting(rule_exec_status: Res<RulesetExecutionStatus>) -> bool {
+    // info!("cond idx: {}", rule_exec_status.condition_index);
+    rule_exec_status.action_index == 0 && rule_exec_status.condition_index == 0
 }

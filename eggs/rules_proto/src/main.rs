@@ -1,8 +1,9 @@
+mod factions;
 mod rules;
 
 use bevy::{log::LogPlugin, prelude::*};
 
-use crate::rules::{actions::*, checks::*, *};
+use crate::rules::{actions::*, conditions::*, *};
 
 fn main() {
     App::new()
@@ -12,18 +13,17 @@ fn main() {
         .run();
 
     fn spawn_stuff(mut commands: Commands) {
-        let n = 100;
+        let n = 1;
 
-        for i in 0..n {
+        for _i in 0..n {
             commands.spawn((
-                Index(i),
                 Actor {
                     energy: 0,
                     max_energy: 150,
                     speed: 100,
                 },
                 Ruleset {
-                    points: vec![vec![0, 0], vec![0, 1], vec![1, 0], vec![1, 1]],
+                    points: vec![vec![3, 3], vec![1, 2], vec![2, 1], vec![1, 1]],
                 },
                 Condition {
                     index: 0,
@@ -53,16 +53,16 @@ fn main() {
             ));
         }
 
-        for i in 0..n {
+        /*
+        for _i in 0..n {
             commands.spawn((
-                Index(i + n),
                 Actor {
                     energy: 0,
                     max_energy: 150,
                     speed: 100,
                 },
                 Ruleset {
-                    points: vec![vec![0, 0], vec![0, 1], vec![1, 0], vec![1, 1]],
+                    points: vec![vec![3, 3], vec![1, 2], vec![2, 1], vec![1, 1]],
                 },
                 Condition {
                     index: 0,
@@ -91,5 +91,6 @@ fn main() {
                 Fallback { action: Do::<1> },
             ));
         }
+        */
     }
 }
