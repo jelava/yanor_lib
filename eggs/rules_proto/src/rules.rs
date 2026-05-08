@@ -22,7 +22,8 @@ impl Plugin for RulesPlugin {
                     (act::<2>, act::<3>),
                     (next_rule_step, check_apocalypse),
                     (fallback::<0>, fallback::<1>).run_if(new_loop_starting),
-                ).chain()
+                )
+                    .chain(),
             );
     }
 }
@@ -37,7 +38,6 @@ pub(crate) enum RulesetSystems {
     // PostFallbacks,
 }
 
-
 #[derive(Resource, Default)]
 pub(crate) struct RulesetExecutionStatus {
     pub condition_index: usize,
@@ -49,7 +49,6 @@ pub(crate) struct TurnCounter(pub(crate) usize);
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct ConditionSystemSet;
-
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct ActionSystemSet;
@@ -126,7 +125,10 @@ fn next_rule_step(
         }
     }
 
-    info!("beginning rule {} action {}", rule_exec_status.condition_index, rule_exec_status.action_index);
+    info!(
+        "beginning rule {} action {}",
+        rule_exec_status.condition_index, rule_exec_status.action_index
+    );
 }
 
 fn check_apocalypse(mut app_exit: MessageWriter<AppExit>, ruleset_query: Query<&Ruleset>) {

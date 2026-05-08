@@ -1,9 +1,9 @@
 use bevy::{
     ecs::{
         query::{QueryData, ROQueryItem},
-        system::{SystemParam, SystemParamItem}
+        system::{SystemParam, SystemParamItem},
     },
-    prelude::*
+    prelude::*,
 };
 
 use crate::HandleProvider;
@@ -32,7 +32,11 @@ pub trait IntoPresentableBundle: Component + Sized {
         if let Ok((presentable, data)) = query.get(target) {
             commands
                 .entity(target)
-                .insert(presentable.into_presentable_bundle(mesh_provider, material_provider, data));
+                .insert(presentable.into_presentable_bundle(
+                    mesh_provider,
+                    material_provider,
+                    data,
+                ));
         } else {
             warn!("Couldn't find Presentable data in query");
         }

@@ -19,14 +19,10 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-3.0, 2.0, 2.0)
-            .looking_at(Vec3::ZERO, Vec3::Y)
+        Transform::from_xyz(-3.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    commands.spawn((
-        PointLight::default(),
-        Transform::from_xyz(-1.0, 3.0, 1.0),
-    ));
+    commands.spawn((PointLight::default(), Transform::from_xyz(-1.0, 3.0, 1.0)));
 
     // commands.spawn((
     //     SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("stairs2.glb"))),
@@ -39,7 +35,11 @@ fn setup(
     //     })),
     // ));
 
-    let mesh_label = GltfAssetLabel::Primitive{ mesh: 0, primitive: 0 }.from_asset("block.glb");
+    let mesh_label = GltfAssetLabel::Primitive {
+        mesh: 0,
+        primitive: 0,
+    }
+    .from_asset("block.glb");
     // let mat_label = GltfAssetLabel::Material { index: 0, is_scale_inverted: false, }.from_asset("stairs.glb");
     // let material: Handle<StandardMaterial> = asset_server.load(mat_label);
 
