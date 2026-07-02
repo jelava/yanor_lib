@@ -173,9 +173,9 @@ fn create_step_animator(
 }
 
 fn skip_animation_on_input(
-    mut commands: Commands,
+    mut _commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut animation_query: Query<&mut TweenAnim>,
+    mut _animation_query: Query<&mut TweenAnim>,
 ) {
     if keyboard_input.get_just_pressed().next().is_some() {
         // for mut animation in &mut animation_query {

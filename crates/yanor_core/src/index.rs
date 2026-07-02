@@ -3,6 +3,7 @@ use std::{hash::Hash, marker::PhantomData};
 
 use bevy::{
     ecs::{
+        component::Mutable,
         entity::EntityHashSet,
         query::{QueryData, QueryFilter},
     },
@@ -10,7 +11,7 @@ use bevy::{
     prelude::*,
 };
 
-pub trait ComponentIndex: Resource {
+pub trait ComponentIndex: Resource<Mutability = Mutable> {
     type Cmp: Component + Copy + Clone;
 
     fn get(&self, component: &Self::Cmp) -> Option<&EntityHashSet>;
@@ -104,7 +105,7 @@ impl<I: ComponentIndex + Default> Plugin for ComponentIndexPlugin<I> {
     fn build(&self, app: &mut App) {
         app.init_resource::<I>()
             .add_observer(update_index_on_insert::<I>)
-            .add_observer(update_index_on_replace::<I>);
+            .add_observer(update_index_on_discard::<I>);
     }
 }
 
@@ -122,8 +123,8 @@ fn update_index_on_insert<I: ComponentIndex>(
     }
 }
 
-fn update_index_on_replace<I: ComponentIndex>(
-    trigger: On<Replace, I::Cmp>,
+fn update_index_on_discard<I: ComponentIndex>(
+    trigger: On<Discard, I::Cmp>,
     mut index: ResMut<I>,
     component_query: Query<&I::Cmp>,
 ) {

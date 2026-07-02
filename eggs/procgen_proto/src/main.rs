@@ -3,44 +3,54 @@ mod islands;
 mod noiz_ext;
 mod presentation;
 
-// TODO: try not to depend on std
+// TODO: find non std-based alternative for generating rng seeds
 use std::time::SystemTime;
 
-use bevy::{dev_tools::fps_overlay::FpsOverlayPlugin, light::SunDisk, pbr::Atmosphere, prelude::*};
+use bevy::{
+    camera::primitives::Aabb,
+    camera_controller::free_camera::FreeCamera,
+    color::palettes::css::RED,
+    gizmos::GizmoPlugin,
+    image::{ImageAddressMode, ImageFilterMode, ImageSamplerDescriptor},
+    light::SunDisk,
+    prelude::*,
+};
 
 use crate::{
-    blocks::{Block, BlocksPlugin, DirtBlock, GrassBlock, PathBlock, StoneBlock},
-    islands::{block_gen::*, path_gen::*, region_graph::*, *},
+    blocks::Block,
+    islands::{
+        ChunkedIslandGenerator, ChunkedIslandPlugin, IslandGenerationState, IslandGenerator,
+        IslandPlugin, debug::PathPlacementDebugViz,
+    },
+    presentation::PresentationPlugin,
 };
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(ImagePlugin::default_nearest()),
-            FpsOverlayPlugin::default(),
-        ))
-        .add_plugins(BlocksPlugin)
-        .init_resource::<BasicHandles>()
+        // TODO: only add minimal plugins needed for game logic here, add rendering-related ones
+        // in PresentationPlugin
+        .add_plugins(DefaultPlugins.set(ImagePlugin {
+            default_sampler: ImageSamplerDescriptor {
+                address_mode_u: ImageAddressMode::Repeat,
+                address_mode_v: ImageAddressMode::Repeat,
+                mag_filter: ImageFilterMode::Nearest,
+                min_filter: ImageFilterMode::Nearest,
+                ..default()
+            },
+        }))
+        .add_plugins((ChunkedIslandPlugin, IslandPlugin, PresentationPlugin))
+        .init_resource::<BlockHandles>()
         .add_systems(PreStartup, init)
-        .add_systems(
-            Startup,
-            (
-                generate_first_pass_region_graph,
-                generate_second_pass_region_graph,
-                generate_path_edges,
-                generate_path_placements,
-                generate_surface_blocks,
-            )
-                .chain(),
-        )
-        // .add_systems(PostStartup, init_path_placement_debug_viz)
-        .add_systems(Update, (island_bounds_debug_viz, rotate_camera))
+        // .add_systems(Update, island_bounds_debug_viz)
         .run();
 }
 
-fn init(mut commands: Commands) {
-    let inland_dimensions = uvec3(100, 50, 64);
-    let boundary_size = 30;
+fn init(
+    mut commands: Commands,
+    mut next_island_gen_state: ResMut<NextState<IslandGenerationState>>,
+) {
+    let inland_dimensions = uvec3(60, 30, 60);
+    let boundary_size = 10;
     let full_dimensions = inland_dimensions + uvec3(2 * boundary_size, 0, 2 * boundary_size);
     let island_scale = full_dimensions.as_vec3();
     let island_origin = IVec3::ZERO;
@@ -48,44 +58,63 @@ fn init(mut commands: Commands) {
 
     commands.spawn((
         Camera3d::default(),
-        Atmosphere::EARTH,
-        Transform::from_translation(island_center + vec3(-100.0, 20.0, -100.0))
-            .looking_at(island_center, Dir3::Y),
+        FreeCamera::default(),
+        // Atmosphere::EARTH,
+        // Transform::from_translation(island_center + vec3(0.0, 25.0, -20.0))
+        //     .looking_at(island_center, Dir3::Y),
+        Transform::from_translation(vec3(2.0, 2.0, 2.0)).looking_at(Vec3::ZERO, Dir3::Y),
+        AmbientLight {
+            // color: todo!(),
+            brightness: 500.0,
+            // affects_lightmapped_meshes: todo!(),
+            ..default()
+        },
     ));
 
     commands.spawn((
-        DirectionalLight::default(),
+        DirectionalLight {
+            // color: todo!(),
+            illuminance: 24000.0,
+            shadow_maps_enabled: true,
+            ..default()
+        },
         SunDisk::EARTH,
-        Transform::from_translation(Vec3::ZERO)
-            .looking_to(vec3(-0.25, -0.75, 0.25).normalize(), Dir3::Y),
+        Transform::from_translation(vec3(0.0, 60.0, -60.0)).looking_at(island_center, Dir3::Y),
     ));
 
-    let seed = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .expect("time enough at last") // TODO
-        .as_secs() as u32;
+    commands.spawn((
+        DirectionalLight {
+            // color: todo!(),
+            illuminance: 1500.0,
+            shadow_maps_enabled: false,
+            ..default()
+        },
+        Transform::from_translation(island_center + vec3(0.0, 10.0, 0.0))
+            .looking_at(island_center, Dir3::Y),
+    ));
 
-    info!("spawning island gen");
+    // let seed = SystemTime::now()
+    //     .duration_since(SystemTime::UNIX_EPOCH)
+    //     .expect("time enough at last") // TODO
+    //     .as_secs() as u32;
 
-    commands.spawn((IslandGenerator::new(
-        seed,
-        island_origin,
-        inland_dimensions,
-        boundary_size,
-    ),));
+    let seed = 1781980629;
 
-    // commands.spawn((
-    //     IslandBoundsDebugViz,
-    //     ThirdPassRegionDebugViz,
-    //     PathPlacementDebugViz,
-    // ));
-}
+    info!("spawning island gen, seed: {seed}");
 
-fn rotate_camera(
-    mut camera_transform: Single<&mut Transform, With<Camera3d>>,
-    island_gen: Single<&IslandGenerator>,
-) {
-    camera_transform.rotate_around(island_gen.center(), Quat::from_rotation_y(0.01));
+    // commands.spawn(IslandGenerator::new(seed, inland_dimensions, boundary_size));
+
+    commands.spawn((
+        Name::new("Island generator"),
+        ChunkedIslandGenerator {
+            seed,
+            island_size: uvec2(5, 5),
+        },
+    ));
+
+    // commands.spawn(PathPlacementDebugViz);
+
+    next_island_gen_state.set(IslandGenerationState::SpawnChunkGenerators);
 }
 
 pub trait HandleProvider<A: Asset, C: Component> {
@@ -93,7 +122,7 @@ pub trait HandleProvider<A: Asset, C: Component> {
 }
 
 #[derive(Resource, Clone)]
-pub struct BasicHandles {
+pub struct BlockHandles {
     block_mesh: Handle<Mesh>,
     dirt_material: Handle<StandardMaterial>,
     grass_material: Handle<StandardMaterial>,
@@ -101,7 +130,7 @@ pub struct BasicHandles {
     stone_material: Handle<StandardMaterial>,
 }
 
-impl FromWorld for BasicHandles {
+impl FromWorld for BlockHandles {
     fn from_world(world: &mut World) -> Self {
         let block_mesh = {
             let mut meshes = world
@@ -171,7 +200,7 @@ impl FromWorld for BasicHandles {
             })
         };
 
-        BasicHandles {
+        BlockHandles {
             block_mesh,
             dirt_material,
             grass_material,
@@ -181,33 +210,9 @@ impl FromWorld for BasicHandles {
     }
 }
 
-impl<B: Block> HandleProvider<Mesh, B> for BasicHandles {
+impl<B: Block> HandleProvider<Mesh, B> for BlockHandles {
     fn handle(self, _component: &B) -> Handle<Mesh> {
         self.block_mesh.clone()
-    }
-}
-
-impl HandleProvider<StandardMaterial, DirtBlock> for BasicHandles {
-    fn handle(self, _component: &DirtBlock) -> Handle<StandardMaterial> {
-        self.dirt_material.clone()
-    }
-}
-
-impl HandleProvider<StandardMaterial, GrassBlock> for BasicHandles {
-    fn handle(self, _component: &GrassBlock) -> Handle<StandardMaterial> {
-        self.grass_material.clone()
-    }
-}
-
-impl HandleProvider<StandardMaterial, PathBlock> for BasicHandles {
-    fn handle(self, _component: &PathBlock) -> Handle<StandardMaterial> {
-        self.path_material.clone()
-    }
-}
-
-impl HandleProvider<StandardMaterial, StoneBlock> for BasicHandles {
-    fn handle(self, _component: &StoneBlock) -> Handle<StandardMaterial> {
-        self.stone_material.clone()
     }
 }
 
@@ -219,154 +224,3 @@ where
         self.into_inner().clone().handle(component)
     }
 }
-
-/*
-fn weird_idea(
-    mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let chunk_size = 100;
-    let image_size = uvec2(chunk_size * chunk_size, 3 * chunk_size);
-    let mut data = Vec::with_capacity((4 * image_size.x * image_size.y) as usize);
-
-    let mut plane_count = 0;
-
-    let image = images.add(Image::new(
-        Extent3d {
-            width: image_size.x,
-            height: image_size.y,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        data,
-        TextureFormat::Rgba8Unorm,
-        RenderAssetUsages::all(),
-    ));
-
-    let material = materials.add(StandardMaterial {
-        // base_color_texture: Some(image),
-        // unlit: true,
-        cull_mode: None,
-        alpha_mode: AlphaMode::Mask(1.0),
-        ..default()
-    });
-
-    for x in 0..(chunk_size + 1) {
-        for y in 0..chunk_size {
-            for z in 0..chunk_size {
-                let test = x % 2;
-                let value = if (y % 2 == test) && (z % 2 == test) { 255 } else { 0 };
-
-                data.push(value);
-                data.push(value);
-                data.push(value);
-                data.push(value);
-            }
-        }
-
-
-        let plane = meshes.add(Plane3d::new(Vec3::X, Vec2::splat(0.5)));
-        plane_count += 1;
-
-        commands.spawn((
-            Transform::from_xyz(x as f32 / chunk_size as f32, 0.5, 0.5),
-            Mesh3d(plane),
-            MeshMaterial3d(material.clone()),
-        ));
-    }
-
-    // for y in 0..(chunk_size + 1) {
-    //     let mut data = Vec::with_capacity((4 * chunk_size * chunk_size) as usize);
-
-    //     for x in 0..chunk_size {
-    //         for z in 0..chunk_size {
-    //             let test = y % 2;
-    //             let value = if (x % 2 == test) && (z % 2 == test) { 255 } else { 0 };
-
-    //             data.push(value);
-    //             data.push(value);
-    //             data.push(value);
-    //             data.push(value);
-    //         }
-    //     }
-
-    //     let image = images.add(Image::new(
-    //         Extent3d {
-    //             width: image_size.x,
-    //             height: image_size.y,
-    //             depth_or_array_layers: 1,
-    //         },
-    //         TextureDimension::D2,
-    //         data,
-    //         TextureFormat::Rgba8Unorm,
-    //         RenderAssetUsages::all(),
-    //     ));
-
-    //     let plane = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(0.5 * chunk_size as f32)));
-    //     plane_count += 1;
-
-    //     let material = materials.add(StandardMaterial {
-    //         // base_color_texture: Some(image),
-    //         // unlit: true,
-    //         cull_mode: None,
-    //         alpha_mode: AlphaMode::Mask(1.0),
-    //         ..default()
-    //     });
-
-    //     commands.spawn((
-    //         Transform::from_xyz(0.5 * chunk_size as f32, y as f32, 0.5 * chunk_size as f32),
-    //         Mesh3d(plane),
-    //         MeshMaterial3d(material),
-    //     ));
-    // }
-
-    // for z in 0..(chunk_size + 1) {
-    //     let mut data = Vec::with_capacity((4 * chunk_size * chunk_size) as usize);
-
-    //     for x in 0..chunk_size {
-    //         for y in 0..chunk_size {
-    //             let test = z % 2;
-    //             let value = if (x % 2 == test) && (y % 2 == test) { 255 } else { 0 };
-
-    //             data.push(value);
-    //             data.push(value);
-    //             data.push(value);
-    //             data.push(value);
-    //         }
-    //     }
-
-    //     let image = images.add(Image::new(
-    //         Extent3d {
-    //             width: image_size.x,
-    //             height: image_size.y,
-    //             depth_or_array_layers: 1,
-    //         },
-    //         TextureDimension::D2,
-    //         data,
-    //         TextureFormat::Rgba8Unorm,
-    //         RenderAssetUsages::all(),
-    //     ));
-
-    //     let plane = meshes.add(Plane3d::new(Vec3::Z, Vec2::splat(0.5 * chunk_size as f32)));
-    //     plane_count += 1;
-
-    //     let material = materials.add(StandardMaterial {
-    //         // base_color_texture: Some(image),
-    //         // unlit: true,
-    //         cull_mode: None,
-    //         alpha_mode: AlphaMode::Mask(1.0),
-    //         ..default()
-    //     });
-
-    //     commands.spawn((
-    //         Transform::from_xyz(0.5 * chunk_size as f32, 0.5 * chunk_size as f32, z as f32),
-    //         Mesh3d(plane),
-    //         MeshMaterial3d(material),
-    //     ));
-    // }
-
-    info!("{plane_count}");
-}
-*/

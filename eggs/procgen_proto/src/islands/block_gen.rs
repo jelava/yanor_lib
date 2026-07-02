@@ -11,7 +11,7 @@ pub fn generate_surface_blocks(
     let (island_gen, Regions(regions), PathPlacement(path_cells)) = *island_gen_query;
 
     let island_size = island_gen.full_dimensions();
-    let island_center = island_gen.center();
+    // let island_center = island_gen.center();
     let sea_level_ratio = 0.75;
 
     let mut surface_heights: Vec<Vec<Option<i32>>> =
@@ -21,8 +21,7 @@ pub fn generate_surface_blocks(
         let z_edge_distance = z.min(island_size.z - z);
 
         for x in 0..island_size.x {
-            let map_offset = ivec2(x as i32, z as i32);
-            let map_pos = island_gen.origin.xz() + map_offset;
+            let map_pos = uvec2(x, z);
             let sample_pos = map_pos.as_vec2() + Vec2::splat(0.5);
 
             let mut path_distance: Option<f32> = None;
@@ -30,7 +29,7 @@ pub fn generate_surface_blocks(
             // this is probably not too efficient, but fine for now unless island gen gets noticeably slow
             for dz in -3..=3 {
                 for dx in -3..=3 {
-                    let offset_pos = map_pos + ivec2(dx, dz);
+                    let offset_pos = map_pos.saturating_add_signed(ivec2(dx, dz));
                     let offset_distance = vec2(dx as f32, dz as f32).length();
 
                     if path_cells.contains_key(&offset_pos) {
@@ -49,7 +48,7 @@ pub fn generate_surface_blocks(
                 1.0
             };
 
-            let smooth_elevation: f32 = island_gen.base_elevation_noise.sample(sample_pos);
+            let smooth_elevation: f32 = island_gen.smooth_elevation_noise.sample(sample_pos);
             let high_freq_elevation: f32 = island_gen.high_freq_elevation_noise.sample(sample_pos);
             let base_elevation = (1.0 - high_freq_weight) * smooth_elevation
                 + (high_freq_weight * high_freq_elevation);
@@ -62,11 +61,10 @@ pub fn generate_surface_blocks(
             let elevation = base_elevation + scaled_edge_distance.sqrt() - 1.0;
 
             if elevation >= 0.0 {
-                let sea_level =
-                    (island_gen.origin.y as f32) + sea_level_ratio * (island_size.y as f32);
+                let sea_level = sea_level_ratio * (island_size.y as f32);
                 let elevation_scale = (1.0 - sea_level_ratio) * (island_size.y as f32);
                 let y = sea_level + elevation * elevation_scale;
-                let block_pos = island_gen.origin + ivec3(x as i32, y.round() as i32, z as i32);
+                let block_pos = ivec3(x as i32, y as i32, z as i32);
 
                 if path_distance == Some(0.0) {
                     commands.spawn((PathBlock, GridPos(block_pos)));
@@ -74,13 +72,7 @@ pub fn generate_surface_blocks(
                     commands.spawn((GrassBlock, GridPos(block_pos)));
                 }
 
-                // TODO add some kind of multiplier/adjustment
-                let underside_y = sea_level - (y - sea_level);
-                let underside_pos =
-                    island_gen.origin + ivec3(x as i32, underside_y.round() as i32, z as i32);
-                commands.spawn((StoneBlock, GridPos(underside_pos)));
-
-                surface_heights[x as usize][z as usize] = Some(y.round() as i32);
+                surface_heights[x as usize][z as usize] = Some(y as i32);
             }
         }
     }
@@ -114,7 +106,7 @@ pub fn generate_surface_blocks(
 
                 if let Some(min_y) = min_neighbor_y {
                     for cliff_y in (min_y + 1)..y {
-                        let block_pos = island_gen.origin + ivec3(x as i32, cliff_y, z as i32);
+                        let block_pos = /*island_gen.origin +*/ ivec3(x as i32, cliff_y, z as i32);
 
                         if y - cliff_y < 4 {
                             commands.spawn((DirtBlock, GridPos(block_pos)));

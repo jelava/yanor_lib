@@ -12,10 +12,6 @@ impl GridPos {
     pub fn new(x: i32, y: i32, z: i32) -> Self {
         Self(IVec3::new(x, y, z))
     }
-
-    pub fn from_vec_floor(value: Vec3) -> Self {
-        Self(IVec3::new(value.x as i32, value.y as i32, value.z as i32))
-    }
 }
 
 impl From<GridPos> for Vec3 {
